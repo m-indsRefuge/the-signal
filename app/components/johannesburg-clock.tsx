@@ -40,7 +40,10 @@ export function JohannesburgClock() {
   const time = useMemo(() => formatJohannesburgTime(timestamp), [timestamp]);
 
   return (
-    <div className="signal-threshold__footer" aria-label="Johannesburg signal coordinates">
+    <div
+      className="signal-threshold__footer"
+      aria-label="Johannesburg signal coordinates"
+    >
       <div className="signal-threshold__footer-info">
         <div className="signal-threshold__coordinates">
           <span>26°12′15″ S</span>

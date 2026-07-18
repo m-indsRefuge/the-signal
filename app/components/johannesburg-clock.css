@@ -1,0 +1,71 @@
+.signal-threshold .signal-threshold__footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.signal-threshold .signal-threshold__footer-info {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: clamp(2.5rem, 5vw, 6rem);
+  align-items: end;
+  width: min(66.666vw, 72rem);
+  max-width: 100%;
+}
+
+.signal-threshold .signal-threshold__coordinates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1.4rem;
+}
+
+.signal-threshold .signal-threshold__clock {
+  display: inline-block;
+  min-width: 6.8rem;
+  justify-self: start;
+  color: rgba(242, 239, 232, 0.82);
+  font-size: clamp(0.68rem, 0.86vw, 0.82rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-shadow:
+    0 0 1.2rem rgba(255, 255, 255, 0.055),
+    0 0 2.2rem rgba(255, 46, 166, 0.035);
+  white-space: nowrap;
+}
+
+.signal-threshold .signal-threshold__clock-zone {
+  justify-self: end;
+  color: rgba(242, 239, 232, 0.48);
+  white-space: nowrap;
+}
+
+@media (max-width: 70rem) {
+  .signal-threshold .signal-threshold__footer-info {
+    grid-template-columns: auto auto;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    width: min(72vw, 56rem);
+  }
+
+  .signal-threshold .signal-threshold__clock-zone {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .signal-threshold .signal-threshold__footer-info {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+    width: auto;
+  }
+
+  .signal-threshold .signal-threshold__coordinates {
+    display: none;
+  }
+
+  .signal-threshold .signal-threshold__clock-zone {
+    display: inline;
+    justify-self: start;
+    white-space: normal;
+  }
+}

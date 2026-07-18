@@ -1,0 +1,9 @@
+.agents/
+.react-router/
+.wrangler/
+build/
+coverage/
+node_modules/
+worker-configuration.d.ts
+package-lock.json
+**/*.svg

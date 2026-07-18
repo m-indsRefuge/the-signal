@@ -5,28 +5,54 @@
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
-    "typecheck": "wrangler types && react-router typegen && tsc -b",
+    "typecheck": "npm run typegen && npm run typecheck:app && npm run typecheck:test",
     "deploy": "npm run build && wrangler deploy",
     "preview": "npm run build && vite preview",
     "cf-typegen": "wrangler types",
-    "postinstall": "wrangler types"
+    "postinstall": "wrangler types",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
+    "ci": "npm run check",
+    "typecheck:app": "tsc -b --force",
+    "typecheck:test": "tsc -p test/tsconfig.json --noEmit",
+    "typegen": "wrangler types && react-router typegen"
   },
   "dependencies": {
     "isbot": "^5.1.36",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router": "8.0.0"
+    "react-router": "8.2.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.45.1",
-    "@react-router/dev": "8.0.0",
+    "@cloudflare/vitest-pool-workers": "0.18.6",
+    "@eslint/js": "10.0.1",
+    "@react-router/dev": "8.2.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-istanbul": "4.1.10",
+    "eslint": "10.7.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "8.64.0",
     "vite": "^8.0.3",
+    "vitest": "4.1.10",
     "wrangler": "^4.112.0"
-  }
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "npm@11.13.0"
 }

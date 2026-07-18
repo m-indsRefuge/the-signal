@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import { useSecondTick } from "./second-tick";
+import "./johannesburg-clock.css";
 
 const TIME_ZONE = "Africa/Johannesburg";
 
@@ -46,10 +47,13 @@ export function JohannesburgClock() {
           <span>28°02′50″ E</span>
         </div>
 
-        <div className="signal-threshold__clock">
-          <time dateTime={time.dateTime}>{time.display}</time>
-          <span className="signal-threshold__clock-zone">SAST · Johannesburg, South Africa</span>
-        </div>
+        <time className="signal-threshold__clock" dateTime={time.dateTime}>
+          {time.display}
+        </time>
+
+        <span className="signal-threshold__clock-zone">
+          SAST · Johannesburg, South Africa
+        </span>
       </div>
 
       <a className="signal-threshold__scroll" href="#threshold-briefing">

@@ -79,6 +79,13 @@ float gaussian(float position, float centre, float width) {
   return exp(-distanceFromCentre * distanceFromCentre);
 }
 
+float wrappedGaussian(float position, float centre, float width) {
+  float distanceFromCentre = abs(position - centre);
+  distanceFromCentre = min(distanceFromCentre, 1.0 - distanceFromCentre);
+  distanceFromCentre /= width;
+  return exp(-distanceFromCentre * distanceFromCentre);
+}
+
 float cycleEnvelope(
   float timeSeconds,
   float duration,
@@ -130,19 +137,19 @@ SignalField createSignalField(float x, float timeSeconds) {
     liveTrace.wave * 0.06;
 
   float structural = sin(
-    TAU * (x * 0.72 + timeSeconds * 0.052) +
+    TAU * (x * 0.72 - timeSeconds * 0.052) +
     noisePhase +
     broadTrace.wave * 0.06
   );
   float body = sin(
     TAU * (x * (2.55 + low * 0.28) - timeSeconds * 0.135) +
-    sin(TAU * (x * 0.68 + timeSeconds * 0.041)) * 0.72 +
+    sin(TAU * (x * 0.68 - timeSeconds * 0.041)) * 0.72 +
     noisePhase * 0.52 +
     phaseDomain * 0.14 +
     liveTrace.wave * (0.08 + low * 0.1)
   );
   float harmonic = sin(
-    TAU * (x * (7.4 + mid * 1.3) + timeSeconds * 0.34) +
+    TAU * (x * (7.4 + mid * 1.3) - timeSeconds * 0.34) +
     structural * 0.58 +
     phaseDomain * 0.42 +
     liveTrace.spectrum * 0.44
@@ -159,18 +166,18 @@ SignalField createSignalField(float x, float timeSeconds) {
     0.5 +
     0.5 * sin(
       TAU * (x * 1.28 - timeSeconds * 0.046) +
-      sin(TAU * (x * 0.39 + timeSeconds * 0.021)) * 0.85 +
+      sin(TAU * (x * 0.39 - timeSeconds * 0.021)) * 0.85 +
       broadTrace.envelope * 0.22
     );
 
-  float packetCentreA = 0.5 + 0.34 * sin(timeSeconds * 0.087);
-  float packetCentreB = 0.5 + 0.43 * sin(timeSeconds * 0.053 + 2.2);
-  float packetA = gaussian(x, packetCentreA, 0.075 + mid * 0.025);
-  float packetB = gaussian(x, packetCentreB, 0.13 + low * 0.035);
+  float packetCentreA = fract(0.08 + timeSeconds * 0.032);
+  float packetCentreB = fract(0.53 + timeSeconds * 0.021);
+  float packetA = wrappedGaussian(x, packetCentreA, 0.075 + mid * 0.025);
+  float packetB = wrappedGaussian(x, packetCentreB, 0.13 + low * 0.035);
   float interference =
     0.5 +
     0.5 * sin(
-      TAU * (x * 3.2 + timeSeconds * 0.11) +
+      TAU * (x * 3.2 - timeSeconds * 0.11) +
       sin(TAU * (x * 1.1 - timeSeconds * 0.036)) +
       liveTrace.wave * 0.24
     );
@@ -193,10 +200,18 @@ SignalField createSignalField(float x, float timeSeconds) {
     0.68,
     0.9
   );
-  float coherenceCentreA = 0.5 + 0.31 * sin(timeSeconds * 0.081 + 0.7);
-  float coherenceCentreB = 0.5 + 0.37 * sin(timeSeconds * 0.061 + 2.4);
-  float coherenceZoneA = gaussian(x, coherenceCentreA, 0.16 + low * 0.035);
-  float coherenceZoneB = gaussian(x, coherenceCentreB, 0.115 + mid * 0.03);
+  float coherenceCentreA = fract(0.14 + timeSeconds * 0.019);
+  float coherenceCentreB = fract(0.64 + timeSeconds * 0.013);
+  float coherenceZoneA = wrappedGaussian(
+    x,
+    coherenceCentreA,
+    0.16 + low * 0.035
+  );
+  float coherenceZoneB = wrappedGaussian(
+    x,
+    coherenceCentreB,
+    0.115 + mid * 0.03
+  );
   float coherence = clamp(
     coherenceCycleA * coherenceZoneA +
     coherenceCycleB * coherenceZoneB * 0.78 +
@@ -230,8 +245,8 @@ SignalField createSignalField(float x, float timeSeconds) {
       structural * 0.38 +
       liveTrace.envelope * 0.16
     );
-  float counterField = sin(
-    TAU * (x * 3.86 + timeSeconds * 0.118) -
+  float forwardField = sin(
+    TAU * (x * 3.86 - timeSeconds * 0.118) -
     body * 0.36 +
     phaseDomain * 0.44 +
     liveTrace.spectrum * 0.24
@@ -241,7 +256,7 @@ SignalField createSignalField(float x, float timeSeconds) {
     0.5 +
     0.5 * sin(
       TAU * (x * 1.46 - timeSeconds * 0.039) +
-      sin(TAU * (x * 0.52 + timeSeconds * 0.018)) * 0.62 +
+      sin(TAU * (x * 0.52 - timeSeconds * 0.018)) * 0.62 +
       broadTrace.envelope * 0.18
     );
   float lowerTransfer = 1.0 - coherence * transferPhase * 0.16;
@@ -261,10 +276,12 @@ SignalField createSignalField(float x, float timeSeconds) {
     1.0
   );
 
-  float composite =
+  float macroComposite =
     structural * 0.34 * lowerTransfer +
     body * 0.37 * lowerTransfer +
-    harmonic * (0.19 + mid * 0.04) * upperTransfer +
+    harmonic * (0.11 + mid * 0.025) * upperTransfer;
+  float microComposite =
+    harmonic * (0.08 + mid * 0.015) * upperTransfer +
     detail * (0.07 + high * 0.05) * upperTransfer;
 
   float packetOscillation =
@@ -277,7 +294,7 @@ SignalField createSignalField(float x, float timeSeconds) {
       0.032 +
     packetB *
       sin(
-        TAU * (x * 4.8 + timeSeconds * 0.16) +
+        TAU * (x * 4.8 - timeSeconds * 0.16) +
         structural +
         broadTrace.wave * 0.22
       ) *
@@ -286,11 +303,11 @@ SignalField createSignalField(float x, float timeSeconds) {
   float coupledOscillation =
     beatPair * coherence * (0.017 + mid * 0.012) +
     standingField * coherence * (0.009 + low * 0.008) +
-    counterField * coherenceZoneB * coherenceCycleB * (0.008 + high * 0.006);
+    forwardField * coherenceZoneB * coherenceCycleB * (0.008 + high * 0.006);
 
   float microInterference =
     sin(
-      TAU * (x * (12.8 + high * 2.4) + timeSeconds * 0.29) +
+      TAU * (x * (12.8 + high * 2.4) - timeSeconds * 0.29) +
       beatPair * 0.72 +
       phaseDomain +
       liveTrace.wave * 0.56
@@ -320,14 +337,21 @@ SignalField createSignalField(float x, float timeSeconds) {
     (0.0025 + crest * 0.006);
 
   float amplitude = 0.032 + energy * (0.075 + rms * 0.035);
-  float wave =
-    composite * amplitude +
+  float macroMotion =
+    macroComposite * amplitude +
     packetOscillation +
+    liveContour +
+    onsetImpulse;
+  float microMotion =
+    microComposite * amplitude +
     coupledOscillation +
     microInterference +
-    liveContour +
-    liveRipple +
-    onsetImpulse;
+    liveRipple;
+  float macroGain = 2.05 + rms * 0.45 + crest * 0.25;
+  float microGain = 1.12 + high * 0.1;
+  float expandedWave = macroMotion * macroGain + microMotion * microGain;
+  float waveLimit = 0.22;
+  float wave = tanh(expandedWave / waveLimit) * waveLimit;
   float dispersion = clamp(
     high * 0.34 +
     mid * 0.2 +
@@ -373,19 +397,19 @@ void main() {
     0.0012 +
     field.energy * 0.0033 +
     field.dispersion * 0.0016 +
-    abs(localSlope) * 0.15 +
-    abs(localCurvature) * 0.24;
+    abs(localSlope) * 0.1 +
+    abs(localCurvature) * 0.16;
   float corePosition = 0.5 + field.wave;
   float cyanPosition =
     corePosition +
-    localSlope * 0.72 -
+    localSlope * 0.54 -
     spectralSplit -
-    localCurvature * 0.24;
+    localCurvature * 0.17;
   float pinkPosition =
     corePosition -
-    localSlope * 0.54 +
+    localSlope * 0.42 +
     spectralSplit +
-    localCurvature * 0.19;
+    localCurvature * 0.14;
 
   float coreDistance = abs(vUv.y - corePosition);
   float cyanDistance = abs(vUv.y - cyanPosition);

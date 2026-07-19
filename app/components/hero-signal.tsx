@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { createSyntheticSignalAudio } from "./hero-signal-audio";
+import { createSignalAudioSource } from "./hero-signal-audio";
 import { createLivingSignalRenderer } from "./hero-signal-webgl";
 import "./hero-signal.css";
 
@@ -27,7 +27,7 @@ export function HeroSignal() {
       return;
     }
 
-    const audioSource = createSyntheticSignalAudio();
+    const audioSource = createSignalAudioSource();
     const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
     const resizeObserver = new ResizeObserver(() => {
       const bounds = container.getBoundingClientRect();
@@ -38,7 +38,6 @@ export function HeroSignal() {
     let animationStart = performance.now();
     let elapsedBeforePause = 0;
     let lastFrame = 0;
-    let activationListenersRemoved = false;
 
     const resize = () => {
       const bounds = container.getBoundingClientRect();
@@ -100,38 +99,21 @@ export function HeroSignal() {
       startAnimation();
     };
 
-    function removeActivationListeners() {
-      if (activationListenersRemoved) {
-        return;
-      }
-
-      activationListenersRemoved = true;
-      window.removeEventListener("pointerdown", activateAudio);
-      window.removeEventListener("keydown", activateAudio);
-    }
-
-    function activateAudio() {
-      removeActivationListeners();
-      void audioSource.start().catch(() => undefined);
-    }
-
     const handleContextLost = (event: Event) => {
       event.preventDefault();
       stopAnimation();
       container.dataset.renderer = "fallback";
     };
 
+    void audioSource.start();
     resizeObserver.observe(container);
     canvas.addEventListener("webglcontextlost", handleContextLost);
     motionQuery.addEventListener("change", reconcileAnimationState);
     document.addEventListener("visibilitychange", reconcileAnimationState);
-    window.addEventListener("pointerdown", activateAudio, { passive: true });
-    window.addEventListener("keydown", activateAudio);
     reconcileAnimationState();
 
     return () => {
       stopAnimation();
-      removeActivationListeners();
       resizeObserver.disconnect();
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       motionQuery.removeEventListener("change", reconcileAnimationState);

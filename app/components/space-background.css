@@ -1,0 +1,118 @@
+.space-background {
+  position: fixed;
+  z-index: -10;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #050608;
+  pointer-events: none;
+}
+
+.space-background__image {
+  position: absolute;
+  inset: -8%;
+  background-image: url("/media/the-signal-background.webp");
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: transform, opacity, filter;
+}
+
+.space-background__image--base {
+  opacity: 0.92;
+  animation: signal-space-forward-drift 48s ease-in-out infinite alternate;
+}
+
+.space-background__image--drift {
+  opacity: 0.16;
+  filter: blur(0.45px) brightness(0.72);
+  mix-blend-mode: screen;
+  animation: signal-space-secondary-drift 72s ease-in-out infinite alternate;
+}
+
+.space-background__stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.52;
+}
+
+.space-background__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 52% 42%,
+      rgba(5, 6, 8, 0.38) 0%,
+      rgba(5, 6, 8, 0.56) 50%,
+      rgba(5, 6, 8, 0.84) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(5, 6, 8, 0.28),
+      transparent 34%,
+      transparent 66%,
+      rgba(5, 6, 8, 0.26)
+    );
+}
+
+@keyframes signal-space-forward-drift {
+  0% {
+    transform: scale(1.025) translate3d(-0.25%, 0.18%, 0);
+  }
+
+  50% {
+    transform: scale(1.065) translate3d(0.14%, -0.24%, 0);
+  }
+
+  100% {
+    transform: scale(1.105) translate3d(0.34%, -0.46%, 0);
+  }
+}
+
+@keyframes signal-space-secondary-drift {
+  0% {
+    transform: scale(1.07) translate3d(0.38%, -0.16%, 0);
+  }
+
+  100% {
+    transform: scale(1.135) translate3d(-0.32%, 0.3%, 0);
+  }
+}
+
+@media (max-width: 48rem) {
+  .space-background__image {
+    background-position: 58% top;
+  }
+
+  .space-background__image--drift {
+    opacity: 0.12;
+  }
+
+  .space-background__stars {
+    opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space-background__image {
+    animation: none;
+  }
+
+  .space-background__image--drift,
+  .space-background__stars {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .space-background__image--drift,
+  .space-background__stars {
+    display: none;
+  }
+
+  .space-background__shade {
+    background: linear-gradient(rgba(5, 6, 8, 0.9), rgba(5, 6, 8, 0.92));
+  }
+}

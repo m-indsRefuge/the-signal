@@ -1,3 +1,4 @@
+import { SIGNAL_AUDIO_TEXTURE_SIZE } from "./hero-signal-audio";
 import type { SignalAudioFrame } from "./hero-signal-audio";
 
 const MAX_RENDER_PIXELS = 2_400_000;
@@ -24,8 +25,17 @@ uniform vec2 uResolution;
 uniform float uTime;
 uniform float uMotion;
 uniform vec4 uAudio;
+uniform vec2 uDynamics;
+uniform sampler2D uAudioTexture;
 
 const float TAU = 6.28318530718;
+
+struct AudioTrace {
+  float wave;
+  float spectrum;
+  float envelope;
+  float transient;
+};
 
 struct SignalField {
   float wave;
@@ -84,48 +94,86 @@ float cycleEnvelope(
   return rise * fall;
 }
 
+AudioTrace sampleAudioTrace(float position) {
+  vec4 encoded = texture(
+    uAudioTexture,
+    vec2(clamp(position, 0.0, 1.0), 0.5)
+  );
+
+  return AudioTrace(
+    encoded.r * 2.0 - 1.0,
+    encoded.g,
+    encoded.b,
+    encoded.a
+  );
+}
+
 SignalField createSignalField(float x, float timeSeconds) {
   float rms = uAudio.x;
   float low = uAudio.y;
   float mid = uAudio.z;
   float high = uAudio.w;
+  float flux = uDynamics.x;
+  float crest = uDynamics.y;
 
-  float noisePhase = (valueNoise(vec2(x * 5.4, timeSeconds * 0.16)) - 0.5) * 1.35;
+  float audioDomainWarp =
+    (valueNoise(vec2(x * 2.7 + 4.0, timeSeconds * 0.11)) - 0.5) * 0.018;
+  AudioTrace liveTrace = sampleAudioTrace(x + audioDomainWarp);
+  AudioTrace broadTrace = sampleAudioTrace(x * 0.82 + 0.09);
+
+  float noisePhase =
+    (valueNoise(vec2(x * 5.4, timeSeconds * 0.16)) - 0.5) * 1.35 +
+    liveTrace.wave * (0.08 + rms * 0.16);
   float phaseDomain =
-    (fractalNoise(vec2(x * 3.15 + 2.0, timeSeconds * 0.052)) - 0.5) * 0.92;
+    (fractalNoise(vec2(x * 3.15 + 2.0, timeSeconds * 0.052)) - 0.5) * 0.92 +
+    (liveTrace.envelope - 0.5) * 0.12 +
+    liveTrace.wave * 0.06;
 
-  float structural = sin(TAU * (x * 0.72 + timeSeconds * 0.052) + noisePhase);
+  float structural = sin(
+    TAU * (x * 0.72 + timeSeconds * 0.052) +
+    noisePhase +
+    broadTrace.wave * 0.06
+  );
   float body = sin(
     TAU * (x * (2.55 + low * 0.28) - timeSeconds * 0.135) +
     sin(TAU * (x * 0.68 + timeSeconds * 0.041)) * 0.72 +
     noisePhase * 0.52 +
-    phaseDomain * 0.14
+    phaseDomain * 0.14 +
+    liveTrace.wave * (0.08 + low * 0.1)
   );
   float harmonic = sin(
     TAU * (x * (7.4 + mid * 1.3) + timeSeconds * 0.34) +
     structural * 0.58 +
-    phaseDomain * 0.42
+    phaseDomain * 0.42 +
+    liveTrace.spectrum * 0.44
   );
   float detail = sin(
     TAU * (x * (18.5 + high * 5.0) - timeSeconds * 0.76) +
     body * 0.48 +
     noisePhase * 0.7 +
-    phaseDomain * 0.68
+    phaseDomain * 0.68 +
+    liveTrace.transient * (0.42 + flux * 0.56)
   );
 
-  float localBreathing = 0.5 + 0.5 * sin(
-    TAU * (x * 1.28 - timeSeconds * 0.046) +
-    sin(TAU * (x * 0.39 + timeSeconds * 0.021)) * 0.85
-  );
+  float localBreathing =
+    0.5 +
+    0.5 * sin(
+      TAU * (x * 1.28 - timeSeconds * 0.046) +
+      sin(TAU * (x * 0.39 + timeSeconds * 0.021)) * 0.85 +
+      broadTrace.envelope * 0.22
+    );
 
   float packetCentreA = 0.5 + 0.34 * sin(timeSeconds * 0.087);
   float packetCentreB = 0.5 + 0.43 * sin(timeSeconds * 0.053 + 2.2);
   float packetA = gaussian(x, packetCentreA, 0.075 + mid * 0.025);
   float packetB = gaussian(x, packetCentreB, 0.13 + low * 0.035);
-  float interference = 0.5 + 0.5 * sin(
-    TAU * (x * 3.2 + timeSeconds * 0.11) +
-    sin(TAU * (x * 1.1 - timeSeconds * 0.036))
-  );
+  float interference =
+    0.5 +
+    0.5 * sin(
+      TAU * (x * 3.2 + timeSeconds * 0.11) +
+      sin(TAU * (x * 1.1 - timeSeconds * 0.036)) +
+      liveTrace.wave * 0.24
+    );
 
   float coherenceCycleA = cycleEnvelope(
     timeSeconds,
@@ -151,7 +199,8 @@ SignalField createSignalField(float x, float timeSeconds) {
   float coherenceZoneB = gaussian(x, coherenceCentreB, 0.115 + mid * 0.03);
   float coherence = clamp(
     coherenceCycleA * coherenceZoneA +
-    coherenceCycleB * coherenceZoneB * 0.78,
+    coherenceCycleB * coherenceZoneB * 0.78 +
+    liveTrace.envelope * flux * 0.08,
     0.0,
     1.0
   );
@@ -159,7 +208,8 @@ SignalField createSignalField(float x, float timeSeconds) {
   float pairSeparation = mix(0.31, 0.055, coherence);
   float pairPhase =
     TAU * (x * 4.42 - timeSeconds * 0.17) +
-    phaseDomain * 0.34;
+    phaseDomain * 0.34 +
+    liveTrace.wave * 0.16;
   float coupledA = sin(pairPhase);
   float coupledB = sin(
     TAU *
@@ -167,25 +217,32 @@ SignalField createSignalField(float x, float timeSeconds) {
       timeSeconds * (0.158 + pairSeparation * 0.028)) +
     1.18 -
     coherence * 0.96 +
-    phaseDomain * 0.26
+    phaseDomain * 0.26 +
+    broadTrace.wave * 0.12
   );
   float beatPair = (coupledA + coupledB) * 0.5;
   float beatEnergy = 0.5 + 0.5 * coupledA * coupledB;
 
   float standingField =
     sin(TAU * (x * 5.15 + phaseDomain * 0.055)) *
-    sin(TAU * (timeSeconds * 0.064) + structural * 0.38);
+    sin(
+      TAU * (timeSeconds * 0.064) +
+      structural * 0.38 +
+      liveTrace.envelope * 0.16
+    );
   float counterField = sin(
     TAU * (x * 3.86 + timeSeconds * 0.118) -
     body * 0.36 +
-    phaseDomain * 0.44
+    phaseDomain * 0.44 +
+    liveTrace.spectrum * 0.24
   );
 
   float transferPhase =
     0.5 +
     0.5 * sin(
       TAU * (x * 1.46 - timeSeconds * 0.039) +
-      sin(TAU * (x * 0.52 + timeSeconds * 0.018)) * 0.62
+      sin(TAU * (x * 0.52 + timeSeconds * 0.018)) * 0.62 +
+      broadTrace.envelope * 0.18
     );
   float lowerTransfer = 1.0 - coherence * transferPhase * 0.16;
   float upperTransfer = 1.0 + coherence * transferPhase * 0.22;
@@ -197,6 +254,8 @@ SignalField createSignalField(float x, float timeSeconds) {
     packetB * (0.12 + low * 0.15) +
     interference * mid * 0.14 +
     beatEnergy * coherence * 0.16 +
+    broadTrace.envelope * (0.055 + rms * 0.09) +
+    liveTrace.transient * (0.045 + flux * 0.075) +
     high * 0.08,
     0.0,
     1.0
@@ -209,8 +268,20 @@ SignalField createSignalField(float x, float timeSeconds) {
     detail * (0.07 + high * 0.05) * upperTransfer;
 
   float packetOscillation =
-    packetA * sin(TAU * (x * 11.2 - timeSeconds * 0.27) + body * 0.8) * 0.032 +
-    packetB * sin(TAU * (x * 4.8 + timeSeconds * 0.16) + structural) * 0.024;
+    packetA *
+      sin(
+        TAU * (x * 11.2 - timeSeconds * 0.27) +
+        body * 0.8 +
+        liveTrace.wave * 0.3
+      ) *
+      0.032 +
+    packetB *
+      sin(
+        TAU * (x * 4.8 + timeSeconds * 0.16) +
+        structural +
+        broadTrace.wave * 0.22
+      ) *
+      0.024;
 
   float coupledOscillation =
     beatPair * coherence * (0.017 + mid * 0.012) +
@@ -221,22 +292,50 @@ SignalField createSignalField(float x, float timeSeconds) {
     sin(
       TAU * (x * (12.8 + high * 2.4) + timeSeconds * 0.29) +
       beatPair * 0.72 +
-      phaseDomain
+      phaseDomain +
+      liveTrace.wave * 0.56
     ) *
     coherence *
     (0.0035 + high * 0.0045);
+
+  float liveContour =
+    liveTrace.wave *
+    (0.0045 + rms * 0.012) *
+    (0.45 + liveTrace.envelope * 0.55);
+  float liveRipple =
+    sin(
+      TAU *
+        (x * (10.8 + liveTrace.spectrum * 7.5) -
+        timeSeconds * (0.22 + flux * 0.08)) +
+      liveTrace.wave * 2.1 +
+      phaseDomain
+    ) *
+    (
+      liveTrace.envelope * (0.0022 + mid * 0.004) +
+      liveTrace.transient * (0.002 + flux * 0.004)
+    );
+  float onsetImpulse =
+    liveTrace.wave *
+    liveTrace.transient *
+    (0.0025 + crest * 0.006);
 
   float amplitude = 0.032 + energy * (0.075 + rms * 0.035);
   float wave =
     composite * amplitude +
     packetOscillation +
     coupledOscillation +
-    microInterference;
+    microInterference +
+    liveContour +
+    liveRipple +
+    onsetImpulse;
   float dispersion = clamp(
     high * 0.34 +
     mid * 0.2 +
     coherence * 0.32 +
-    abs(beatPair) * coherence * 0.18,
+    abs(beatPair) * coherence * 0.18 +
+    liveTrace.spectrum * 0.12 +
+    liveTrace.transient * 0.14 +
+    flux * 0.08,
     0.0,
     1.0
   );
@@ -294,10 +393,10 @@ void main() {
 
   float coreWidth =
     max(0.00075, 0.72 / uResolution.y) *
-    (1.0 + field.coherence * 0.08);
+    (1.0 + field.coherence * 0.08 + uDynamics.y * 0.035);
   float spectralWidth =
     max(0.00062, 0.58 / uResolution.y) *
-    (1.0 + field.dispersion * 0.11);
+    (1.0 + field.dispersion * 0.11 + uDynamics.x * 0.045);
 
   float core = strokeMask(coreDistance, coreWidth);
   float cyan = strokeMask(cyanDistance, spectralWidth);
@@ -355,7 +454,11 @@ void main() {
 
 type LivingSignalRenderer = {
   resize: (cssWidth: number, cssHeight: number) => void;
-  render: (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount?: number) => void;
+  render: (
+    timeSeconds: number,
+    audioFrame: SignalAudioFrame,
+    motionAmount?: number,
+  ) => void;
   dispose: () => void;
 };
 
@@ -364,9 +467,15 @@ type UniformLocations = {
   time: WebGLUniformLocation;
   motion: WebGLUniformLocation;
   audio: WebGLUniformLocation;
+  dynamics: WebGLUniformLocation;
+  audioTexture: WebGLUniformLocation;
 };
 
-function compileShader(context: WebGL2RenderingContext, type: number, source: string): WebGLShader {
+function compileShader(
+  context: WebGL2RenderingContext,
+  type: number,
+  source: string,
+): WebGLShader {
   const shader = context.createShader(type);
 
   if (!shader) {
@@ -377,7 +486,8 @@ function compileShader(context: WebGL2RenderingContext, type: number, source: st
   context.compileShader(shader);
 
   if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-    const log = context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
+    const log =
+      context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
     context.deleteShader(shader);
     throw new Error(log);
   }
@@ -386,8 +496,16 @@ function compileShader(context: WebGL2RenderingContext, type: number, source: st
 }
 
 function createProgram(context: WebGL2RenderingContext): WebGLProgram {
-  const vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-  const fragmentShader = compileShader(context, context.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
+  const vertexShader = compileShader(
+    context,
+    context.VERTEX_SHADER,
+    VERTEX_SHADER_SOURCE,
+  );
+  const fragmentShader = compileShader(
+    context,
+    context.FRAGMENT_SHADER,
+    FRAGMENT_SHADER_SOURCE,
+  );
   const program = context.createProgram();
 
   if (!program) {
@@ -403,7 +521,8 @@ function createProgram(context: WebGL2RenderingContext): WebGLProgram {
   context.deleteShader(fragmentShader);
 
   if (!context.getProgramParameter(program, context.LINK_STATUS)) {
-    const log = context.getProgramInfoLog(program) || "Unknown WebGL link error.";
+    const log =
+      context.getProgramInfoLog(program) || "Unknown WebGL link error.";
     context.deleteProgram(program);
     throw new Error(log);
   }
@@ -425,7 +544,9 @@ function getUniformLocation(
   return location;
 }
 
-export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSignalRenderer | null {
+export function createLivingSignalRenderer(
+  canvas: HTMLCanvasElement,
+): LivingSignalRenderer | null {
   const context = canvas.getContext("webgl2", {
     alpha: true,
     antialias: false,
@@ -444,8 +565,9 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
     const program = createProgram(context);
     const vertexArray = context.createVertexArray();
     const vertexBuffer = context.createBuffer();
+    const audioTexture = context.createTexture();
 
-    if (!vertexArray || !vertexBuffer) {
+    if (!vertexArray || !vertexBuffer || !audioTexture) {
       context.deleteProgram(program);
       return null;
     }
@@ -461,6 +583,7 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
     const positionLocation = context.getAttribLocation(program, "aPosition");
 
     if (positionLocation < 0) {
+      context.deleteTexture(audioTexture);
       context.deleteBuffer(vertexBuffer);
       context.deleteVertexArray(vertexArray);
       context.deleteProgram(program);
@@ -468,15 +591,60 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
     }
 
     context.enableVertexAttribArray(positionLocation);
-    context.vertexAttribPointer(positionLocation, 2, context.FLOAT, false, 0, 0);
+    context.vertexAttribPointer(
+      positionLocation,
+      2,
+      context.FLOAT,
+      false,
+      0,
+      0,
+    );
     context.bindVertexArray(null);
     context.bindBuffer(context.ARRAY_BUFFER, null);
+
+    context.activeTexture(context.TEXTURE0);
+    context.bindTexture(context.TEXTURE_2D, audioTexture);
+    context.pixelStorei(context.UNPACK_ALIGNMENT, 1);
+    context.texParameteri(
+      context.TEXTURE_2D,
+      context.TEXTURE_MIN_FILTER,
+      context.LINEAR,
+    );
+    context.texParameteri(
+      context.TEXTURE_2D,
+      context.TEXTURE_MAG_FILTER,
+      context.LINEAR,
+    );
+    context.texParameteri(
+      context.TEXTURE_2D,
+      context.TEXTURE_WRAP_S,
+      context.CLAMP_TO_EDGE,
+    );
+    context.texParameteri(
+      context.TEXTURE_2D,
+      context.TEXTURE_WRAP_T,
+      context.CLAMP_TO_EDGE,
+    );
+    context.texImage2D(
+      context.TEXTURE_2D,
+      0,
+      context.RGBA,
+      SIGNAL_AUDIO_TEXTURE_SIZE,
+      1,
+      0,
+      context.RGBA,
+      context.UNSIGNED_BYTE,
+      null,
+    );
+    context.bindTexture(context.TEXTURE_2D, null);
 
     const uniforms: UniformLocations = {
       resolution: getUniformLocation(context, program, "uResolution"),
       time: getUniformLocation(context, program, "uTime"),
       motion: getUniformLocation(context, program, "uMotion"),
       audio: getUniformLocation(context, program, "uAudio"),
+      dynamics: getUniformLocation(context, program, "uDynamics"),
+      audioTexture: getUniformLocation(context, program, "uAudioTexture"),
     };
 
     context.disable(context.DEPTH_TEST);
@@ -492,8 +660,13 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
         devicePixelRatio,
         window.innerWidth <= 768 ? MOBILE_PIXEL_RATIO : MAX_PIXEL_RATIO,
       );
-      const pixelBudgetRatio = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
-      const renderRatio = Math.max(1, Math.min(preferredRatio, pixelBudgetRatio));
+      const pixelBudgetRatio = Math.sqrt(
+        MAX_RENDER_PIXELS / (safeWidth * safeHeight),
+      );
+      const renderRatio = Math.max(
+        1,
+        Math.min(preferredRatio, pixelBudgetRatio),
+      );
       const width = Math.max(1, Math.floor(safeWidth * renderRatio));
       const height = Math.max(1, Math.floor(safeHeight * renderRatio));
 
@@ -505,10 +678,27 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
       context.viewport(0, 0, width, height);
     };
 
-    const render = (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount = 1) => {
+    const render = (
+      timeSeconds: number,
+      audioFrame: SignalAudioFrame,
+      motionAmount = 1,
+    ) => {
       context.clear(context.COLOR_BUFFER_BIT);
       context.useProgram(program);
       context.bindVertexArray(vertexArray);
+      context.activeTexture(context.TEXTURE0);
+      context.bindTexture(context.TEXTURE_2D, audioTexture);
+      context.texSubImage2D(
+        context.TEXTURE_2D,
+        0,
+        0,
+        0,
+        SIGNAL_AUDIO_TEXTURE_SIZE,
+        1,
+        context.RGBA,
+        context.UNSIGNED_BYTE,
+        audioFrame.textureData,
+      );
       context.uniform2f(uniforms.resolution, canvas.width, canvas.height);
       context.uniform1f(uniforms.time, timeSeconds);
       context.uniform1f(uniforms.motion, motionAmount);
@@ -519,11 +709,15 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
         audioFrame.mid,
         audioFrame.high,
       );
+      context.uniform2f(uniforms.dynamics, audioFrame.flux, audioFrame.crest);
+      context.uniform1i(uniforms.audioTexture, 0);
       context.drawArrays(context.TRIANGLES, 0, 3);
+      context.bindTexture(context.TEXTURE_2D, null);
       context.bindVertexArray(null);
     };
 
     const dispose = () => {
+      context.deleteTexture(audioTexture);
       context.deleteBuffer(vertexBuffer);
       context.deleteVertexArray(vertexArray);
       context.deleteProgram(program);

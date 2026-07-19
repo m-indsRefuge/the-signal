@@ -1,0 +1,1 @@
+The audio-native Signal expects public/media/silicon-transmitter-01-17z-21424.mp3. This marker can be removed after the binary asset is added.

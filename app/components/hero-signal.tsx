@@ -4,7 +4,16 @@ const VIEWBOX_WIDTH = 1600;
 const VIEWBOX_HEIGHT = 320;
 const SAMPLE_COUNT = 320;
 const FRAME_INTERVAL_MS = 1000 / 60;
+const HISTORY_SAMPLE_RATE = 120;
+const HISTORY_SAMPLE_INTERVAL = 1 / HISTORY_SAMPLE_RATE;
+const MAX_SAMPLES_PER_FRAME = 18;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const ENVELOPE_ATTACK_SECONDS = 0.035;
+const ENVELOPE_HOLD_SECONDS = 0.045;
+const ENVELOPE_RELEASE_SECONDS = 0.24;
+const CYAN_DELAY_SAMPLES = 1;
+const PINK_DELAY_SAMPLES = 3;
 
 const EVENT_CYCLE_DURATIONS = [16.4, 18.25, 14.8, 19.1] as const;
 const EVENT_APPROACH_DURATION = 2;
@@ -18,12 +27,14 @@ const EVENT_ACTIVE_DURATION =
   EVENT_PEAK_DURATION +
   EVENT_RELEASE_DURATION +
   EVENT_RECOVERY_DURATION;
-const EVENT_CYCLE_TOTAL = EVENT_CYCLE_DURATIONS.reduce((total, duration) => total + duration, 0);
+const EVENT_CYCLE_TOTAL = EVENT_CYCLE_DURATIONS.reduce(
+  (total, duration) => total + duration,
+  0,
+);
 
 const BROADBAND_BANDS = [
   {
-    spatialFrequency: 0.031,
-    temporalSpeed: 2.8,
+    temporalSpeed: 7.8,
     baseAmplitude: 12.5,
     variation: 4.6,
     amplitudeRate: 0.72,
@@ -31,8 +42,7 @@ const BROADBAND_BANDS = [
     seed: 101,
   },
   {
-    spatialFrequency: 0.067,
-    temporalSpeed: 5.1,
+    temporalSpeed: 13.6,
     baseAmplitude: 9.5,
     variation: 3.8,
     amplitudeRate: 0.96,
@@ -40,8 +50,7 @@ const BROADBAND_BANDS = [
     seed: 131,
   },
   {
-    spatialFrequency: 0.119,
-    temporalSpeed: 8.4,
+    temporalSpeed: 22.4,
     baseAmplitude: 6.8,
     variation: 2.8,
     amplitudeRate: 1.24,
@@ -49,8 +58,7 @@ const BROADBAND_BANDS = [
     seed: 167,
   },
   {
-    spatialFrequency: 0.203,
-    temporalSpeed: 12.7,
+    temporalSpeed: 35.2,
     baseAmplitude: 4.4,
     variation: 1.9,
     amplitudeRate: 1.67,
@@ -58,8 +66,7 @@ const BROADBAND_BANDS = [
     seed: 211,
   },
   {
-    spatialFrequency: 0.337,
-    temporalSpeed: 18.6,
+    temporalSpeed: 52.8,
     baseAmplitude: 2.7,
     variation: 1.1,
     amplitudeRate: 2.15,
@@ -68,8 +75,13 @@ const BROADBAND_BANDS = [
   },
 ] as const;
 
-const COMPRESSION_DRIVE = 64;
+const COMPRESSION_DRIVE = 58;
 const COMPRESSION_LIMIT = 68;
+
+type SignalSample = {
+  value: number;
+  energy: number;
+};
 
 type SignalPoint = {
   x: number;
@@ -84,14 +96,17 @@ type SignalPaths = {
   activity: number;
 };
 
-type TransientState = {
-  center: number;
-  strength: number;
-  width: number;
+type EnvelopeState = {
+  value: number;
+  holdUntil: number;
+};
+
+type SignalState = {
+  history: SignalSample[];
+  envelope: EnvelopeState;
 };
 
 type BroadbandBandState = {
-  spatialFrequency: number;
   temporalSpeed: number;
   amplitude: number;
   phase: number;
@@ -127,7 +142,11 @@ function valueNoise(position: number, seed: number): number {
   const left = Math.floor(position);
   const progress = smootherStep(position - left);
 
-  return interpolate(hashNoise(left, seed), hashNoise(left + 1, seed), progress);
+  return interpolate(
+    hashNoise(left, seed),
+    hashNoise(left + 1, seed),
+    progress,
+  );
 }
 
 function fractalNoise(position: number, seed: number): number {
@@ -139,22 +158,38 @@ function fractalNoise(position: number, seed: number): number {
 }
 
 function createBroadbandState(timeSeconds: number): BroadbandState {
-  const phraseSource = clamp01((fractalNoise(timeSeconds * 0.46, 19) + 0.58) / 1.16);
+  const phraseSource = clamp01(
+    (fractalNoise(timeSeconds * 0.46, 19) + 0.58) / 1.16,
+  );
   const phraseActivity = 0.12 + smootherStep(phraseSource) * 0.88;
-  const syllableSource = clamp01((fractalNoise(timeSeconds * 2.35 + 7, 43) + 1) * 0.5);
+  const syllableSource = clamp01(
+    (fractalNoise(timeSeconds * 2.35 + 7, 43) + 1) * 0.5,
+  );
   const syllableActivity = 0.56 + smootherStep(syllableSource) * 0.44;
-  const consonantSource = clamp01((fractalNoise(timeSeconds * 6.8 + 13, 71) + 0.42) / 1.42);
+  const consonantSource = clamp01(
+    (fractalNoise(timeSeconds * 6.8 + 13, 71) + 0.42) / 1.42,
+  );
   const consonantActivity = Math.pow(consonantSource, 3) * 0.22;
-  const activity = clamp01(phraseActivity * syllableActivity + consonantActivity);
+  const activity = clamp01(
+    phraseActivity * syllableActivity + consonantActivity,
+  );
 
   const bands = BROADBAND_BANDS.map((band, index) => {
-    const amplitudeNoise = fractalNoise(timeSeconds * band.amplitudeRate + index * 11, band.seed);
-    const phaseNoise = fractalNoise(timeSeconds * band.phaseRate + index * 17, band.seed + 7);
+    const amplitudeNoise = fractalNoise(
+      timeSeconds * band.amplitudeRate + index * 11,
+      band.seed,
+    );
+    const phaseNoise = fractalNoise(
+      timeSeconds * band.phaseRate + index * 17,
+      band.seed + 7,
+    );
     const activityBias = 0.32 + activity * (0.74 + index * 0.045);
-    const amplitude = Math.max(0.25, band.baseAmplitude + amplitudeNoise * band.variation);
+    const amplitude = Math.max(
+      0.25,
+      band.baseAmplitude + amplitudeNoise * band.variation,
+    );
 
     return {
-      spatialFrequency: band.spatialFrequency,
       temporalSpeed: band.temporalSpeed,
       amplitude: amplitude * activityBias,
       phase: phaseNoise * (0.48 + index * 0.08),
@@ -168,7 +203,8 @@ function getCyclePosition(timeSeconds: number): {
   cycleDuration: number;
   cycleTime: number;
 } {
-  let cycleTime = ((timeSeconds % EVENT_CYCLE_TOTAL) + EVENT_CYCLE_TOTAL) % EVENT_CYCLE_TOTAL;
+  let cycleTime =
+    ((timeSeconds % EVENT_CYCLE_TOTAL) + EVENT_CYCLE_TOTAL) % EVENT_CYCLE_TOTAL;
 
   for (const cycleDuration of EVENT_CYCLE_DURATIONS) {
     if (cycleTime < cycleDuration) {
@@ -182,30 +218,22 @@ function getCyclePosition(timeSeconds: number): {
   return { cycleDuration, cycleTime: 0 };
 }
 
-function createTransientState(timeSeconds: number): TransientState {
+function createTransientStrength(timeSeconds: number): number {
   const { cycleDuration, cycleTime } = getCyclePosition(timeSeconds);
   const idleDuration = cycleDuration - EVENT_ACTIVE_DURATION;
   const leadInDuration = idleDuration * 0.45;
   const eventTime = cycleTime - leadInDuration;
 
-  if (eventTime <= 0) {
-    return { center: -0.16, strength: 0, width: 0.13 };
+  if (eventTime <= 0 || eventTime >= EVENT_ACTIVE_DURATION) {
+    return 0;
   }
-
-  if (eventTime >= EVENT_ACTIVE_DURATION) {
-    return { center: 1.16, strength: 0, width: 0.18 };
-  }
-
-  const eventProgress = eventTime / EVENT_ACTIVE_DURATION;
-  const center = interpolate(-0.16, 1.16, eventProgress);
 
   if (eventTime < EVENT_APPROACH_DURATION) {
-    const progress = smootherStep(eventTime / EVENT_APPROACH_DURATION);
-    return {
-      center,
-      strength: interpolate(0, 0.28, progress),
-      width: interpolate(0.13, 0.095, progress),
-    };
+    return interpolate(
+      0,
+      0.28,
+      smootherStep(eventTime / EVENT_APPROACH_DURATION),
+    );
   }
 
   const buildStart = EVENT_APPROACH_DURATION;
@@ -214,146 +242,215 @@ function createTransientState(timeSeconds: number): TransientState {
   const recoveryStart = releaseStart + EVENT_RELEASE_DURATION;
 
   if (eventTime < peakStart) {
-    const progress = smootherStep((eventTime - buildStart) / EVENT_BUILD_DURATION);
-    return {
-      center,
-      strength: interpolate(0.28, 1, progress),
-      width: interpolate(0.095, 0.062, progress),
-    };
+    return interpolate(
+      0.28,
+      1,
+      smootherStep((eventTime - buildStart) / EVENT_BUILD_DURATION),
+    );
   }
 
   if (eventTime < releaseStart) {
-    return { center, strength: 1, width: 0.062 };
+    return 1;
   }
 
   if (eventTime < recoveryStart) {
-    const progress = smootherStep((eventTime - releaseStart) / EVENT_RELEASE_DURATION);
-    return {
-      center,
-      strength: interpolate(1, 0.32, progress),
-      width: interpolate(0.062, 0.14, progress),
-    };
+    return interpolate(
+      1,
+      0.32,
+      smootherStep((eventTime - releaseStart) / EVENT_RELEASE_DURATION),
+    );
   }
 
-  const progress = smootherStep((eventTime - recoveryStart) / EVENT_RECOVERY_DURATION);
+  return interpolate(
+    0.32,
+    0,
+    smootherStep((eventTime - recoveryStart) / EVENT_RECOVERY_DURATION),
+  );
+}
 
-  return {
-    center,
-    strength: interpolate(0.32, 0, progress),
-    width: interpolate(0.14, 0.18, progress),
+function followEnvelope(
+  target: number,
+  timeSeconds: number,
+  deltaSeconds: number,
+  state: EnvelopeState,
+): number {
+  let resolvedTarget = target;
+  let timeConstant = ENVELOPE_RELEASE_SECONDS;
+
+  if (target >= state.value) {
+    state.holdUntil = timeSeconds + ENVELOPE_HOLD_SECONDS;
+    timeConstant = ENVELOPE_ATTACK_SECONDS;
+  } else if (timeSeconds < state.holdUntil) {
+    resolvedTarget = Math.max(target, state.value * 0.985);
+    timeConstant = ENVELOPE_HOLD_SECONDS;
+  }
+
+  const interpolation = 1 - Math.exp(-deltaSeconds / timeConstant);
+  state.value = clamp01(
+    state.value + (resolvedTarget - state.value) * interpolation,
+  );
+
+  return state.value;
+}
+
+function createSignalSample(
+  timeSeconds: number,
+  deltaSeconds: number,
+  envelopeState: EnvelopeState,
+): SignalSample {
+  const broadband = createBroadbandState(timeSeconds);
+  const envelope = followEnvelope(
+    broadband.activity,
+    timeSeconds,
+    deltaSeconds,
+    envelopeState,
+  );
+  const transientStrength = createTransientStrength(timeSeconds);
+
+  const structuralPhase = fractalNoise(timeSeconds * 0.31, 307) * 0.38;
+  const structuralCarrier =
+    Math.sin(timeSeconds * 2.4 + structuralPhase) * 8.5 +
+    Math.sin(timeSeconds * 5.3 + 1.1) * 4.2 +
+    Math.sin(timeSeconds * 9.1 - 0.45) * 1.8;
+
+  let broadbandCarrier = 0;
+
+  for (const band of broadband.bands) {
+    broadbandCarrier +=
+      Math.sin(timeSeconds * band.temporalSpeed + band.phase) * band.amplitude;
+  }
+
+  const airTexture =
+    fractalNoise(timeSeconds * 18.5 + 3, 503) * (1.4 + envelope * 2.6);
+  const eventCarrier =
+    transientStrength *
+    (Math.sin(timeSeconds * 31 + 0.7) * 16 +
+      Math.sin(timeSeconds * 53 - 0.9) * 7 +
+      Math.sin(timeSeconds * 17.5 + 1.4) * 4.5);
+  const phraseGain = 0.18 + envelope * 0.98;
+  const uncompressedSignal =
+    structuralCarrier * (0.62 + envelope * 0.2) +
+    broadbandCarrier * phraseGain +
+    airTexture +
+    eventCarrier;
+  const value =
+    Math.tanh(uncompressedSignal / COMPRESSION_DRIVE) * COMPRESSION_LIMIT;
+  const energy = clamp01(
+    envelope * 0.56 +
+      transientStrength * 0.34 +
+      (Math.abs(value) / COMPRESSION_LIMIT) * 0.22,
+  );
+
+  return { value, energy };
+}
+
+function createInitialSignalState(): SignalState {
+  const history: SignalSample[] = [];
+  const envelope: EnvelopeState = {
+    value: 0.24,
+    holdUntil: Number.NEGATIVE_INFINITY,
   };
+  const oldestTime = -SAMPLE_COUNT * HISTORY_SAMPLE_INTERVAL;
+
+  for (let index = 0; index <= SAMPLE_COUNT; index += 1) {
+    const sampleTime = oldestTime + index * HISTORY_SAMPLE_INTERVAL;
+    history.unshift(
+      createSignalSample(sampleTime, HISTORY_SAMPLE_INTERVAL, envelope),
+    );
+  }
+
+  return { history, envelope };
 }
 
 function createSignalPoints(
+  history: SignalSample[],
   timeSeconds: number,
-  transient: TransientState,
-  broadband: BroadbandState,
+  delaySamples = 0,
+  memoryMix = 0,
+  offsetDirection = 0,
 ): SignalPoint[] {
   const midpoint = VIEWBOX_HEIGHT / 2;
 
   return Array.from({ length: SAMPLE_COUNT + 1 }, (_, index) => {
     const progress = index / SAMPLE_COUNT;
     const x = progress * VIEWBOX_WIDTH;
-
-    const longCarrier = Math.sin(x * 0.012 + 0.35 - timeSeconds * 0.72) * 14;
-    const primaryAmplitude = 24 + fractalNoise(timeSeconds * 0.38 + progress * 0.42, 283) * 4.2;
-    const primaryCarrier =
-      Math.sin(
-        x * 0.046 -
-          timeSeconds * 2.15 +
-          fractalNoise(timeSeconds * 0.26 + progress * 0.18, 307) * 0.34,
-      ) * primaryAmplitude;
-    const harmonicCarrier = Math.sin(x * 0.115 + 1.1 - timeSeconds * 4.6) * 7.4;
-    const fineCarrier = Math.sin(x * 0.251 - 0.4 - timeSeconds * 9.4) * 2.4;
-    const structuralEnvelope =
-      0.66 +
-      Math.sin(x * 0.0042 - 0.6 - timeSeconds * 0.31) * 0.13 +
-      Math.sin(x * 0.0081 + 1.4 + timeSeconds * 0.24) * 0.07;
-    const breathing = Math.sin(progress * Math.PI * 2 - timeSeconds * 0.85) * 1.1;
-
-    const localTexture = 0.82 + fractalNoise(progress * 4.8 - timeSeconds * 1.12, 331) * 0.18;
-    const localSpeechSource = clamp01(
-      (fractalNoise(progress * 7.2 - timeSeconds * 1.85, 359) + 1) * 0.5,
+    const current = history[Math.min(index, history.length - 1)];
+    const delayed = history[Math.min(index + delaySamples, history.length - 1)];
+    const rememberedValue = interpolate(
+      current.value,
+      delayed.value,
+      memoryMix,
     );
-    const localSpeechEnvelope = 0.58 + smootherStep(localSpeechSource) * 0.42;
-
-    let broadbandCarrier = 0;
-
-    for (const band of broadband.bands) {
-      broadbandCarrier +=
-        Math.sin(
-          x * band.spatialFrequency -
-            timeSeconds * band.temporalSpeed +
-            band.phase +
-            progress * fractalNoise(timeSeconds * 0.92 + band.temporalSpeed, 389) * 0.16,
-        ) * band.amplitude;
-    }
-
-    broadbandCarrier *= localTexture * localSpeechEnvelope;
-
-    const normalizedDistance = (progress - transient.center) / transient.width;
-    const localEventEnvelope = Math.exp(-0.5 * normalizedDistance * normalizedDistance);
-    const eventEnergy = transient.strength * localEventEnvelope;
-    const transientCarrier = Math.sin(x * 0.205 - timeSeconds * 4.8 + 0.7) * eventEnergy * 13;
-    const transientHarmonic = Math.sin(x * 0.39 + timeSeconds * 7.2 - 0.9) * eventEnergy * 4.8;
-    const transientAsymmetry = Math.sin(x * 0.073 - timeSeconds * 3.4 + 1.25) * eventEnergy * 3.6;
-
-    const uncompressedSignal =
-      longCarrier +
-      (primaryCarrier + harmonicCarrier + fineCarrier) * structuralEnvelope +
-      broadbandCarrier +
-      transientCarrier +
-      transientHarmonic +
-      transientAsymmetry;
-    const compressedSignal = Math.tanh(uncompressedSignal / COMPRESSION_DRIVE) * COMPRESSION_LIMIT;
-    const localBroadbandEnergy = clamp01(
-      broadband.activity * localSpeechEnvelope * (0.28 + Math.abs(broadbandCarrier) / 42),
-    );
-    const energy = clamp01(eventEnergy + localBroadbandEnergy * 0.42);
-    const y = midpoint + compressedSignal + breathing;
+    const energy = Math.max(current.energy, delayed.energy * memoryMix);
+    const chromaticDrift = Math.sin(index * 0.14 - timeSeconds * 3.2) * 0.48;
+    const y =
+      midpoint +
+      rememberedValue +
+      offsetDirection * (1.45 + energy * 2.1) +
+      chromaticDrift * Math.abs(offsetDirection);
 
     return { x, y, energy };
   });
 }
 
-function createPath(points: SignalPoint[], offset: (point: SignalPoint) => number): string {
+function createPath(points: SignalPoint[]): string {
   return points
     .map((point, index) => {
       const command = index === 0 ? "M" : "L";
-      const y = point.y + offset(point);
-
-      return `${command} ${point.x.toFixed(2)} ${y.toFixed(2)}`;
+      return `${command} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
     })
     .join(" ");
 }
 
-function createSignalPaths(timeSeconds: number): SignalPaths {
-  const transient = createTransientState(timeSeconds);
-  const broadband = createBroadbandState(timeSeconds);
-  const points = createSignalPoints(timeSeconds, transient, broadband);
-  const activity = clamp01(transient.strength * 0.62 + broadband.activity * 0.38);
+function createSignalPaths(
+  history: SignalSample[],
+  timeSeconds: number,
+): SignalPaths {
+  const corePoints = createSignalPoints(history, timeSeconds);
+  const cyanPoints = createSignalPoints(
+    history,
+    timeSeconds,
+    CYAN_DELAY_SAMPLES,
+    0.2,
+    -1,
+  );
+  const pinkPoints = createSignalPoints(
+    history,
+    timeSeconds,
+    PINK_DELAY_SAMPLES,
+    0.3,
+    1,
+  );
+  const activityWindow = history.slice(0, 24);
+  const activity =
+    activityWindow.reduce((total, sample) => total + sample.energy, 0) /
+    activityWindow.length;
 
   return {
-    core: createPath(points, () => 0),
-    cyan: createPath(
-      points,
-      ({ x, energy }) =>
-        -1.7 -
-        Math.sin(x * 0.018 - timeSeconds * 1.7) * 1.05 -
-        energy * (1.65 + Math.sin(x * 0.052 - timeSeconds * 3.4) * 0.65),
-    ),
-    pink: createPath(
-      points,
-      ({ x, energy }) =>
-        1.9 +
-        Math.sin(x * 0.014 - timeSeconds * 1.35 + 1.6) * 1.15 +
-        energy * (1.85 + Math.sin(x * 0.047 - timeSeconds * 2.9 + 1.1) * 0.7),
-    ),
+    core: createPath(corePoints),
+    cyan: createPath(cyanPoints),
+    pink: createPath(pinkPoints),
     activity,
   };
 }
 
-const INITIAL_PATHS = createSignalPaths(0);
+function cloneSignalState(state: SignalState): SignalState {
+  return {
+    history: state.history.map((sample) => ({ ...sample })),
+    envelope: { ...state.envelope },
+  };
+}
+
+function pushSignalSample(history: SignalSample[], sample: SignalSample): void {
+  history.unshift(sample);
+
+  if (history.length > SAMPLE_COUNT + 1) {
+    history.pop();
+  }
+}
+
+const INITIAL_SIGNAL_STATE = createInitialSignalState();
+const INITIAL_PATHS = createSignalPaths(INITIAL_SIGNAL_STATE.history, 0);
 
 export function HeroSignal() {
   const auraRef = useRef<SVGPathElement>(null);
@@ -369,6 +466,8 @@ export function HeroSignal() {
     let animationStart = performance.now();
     let elapsedBeforePause = 0;
     let lastFrame = 0;
+    let lastGeneratedTime = 0;
+    let signalState = cloneSignalState(INITIAL_SIGNAL_STATE);
 
     const writePaths = (paths: SignalPaths) => {
       auraRef.current?.setAttribute("d", paths.core);
@@ -382,7 +481,10 @@ export function HeroSignal() {
       }
 
       if (spectrumRef.current) {
-        spectrumRef.current.style.opacity = (0.68 + paths.activity * 0.065).toFixed(3);
+        spectrumRef.current.style.opacity = (
+          0.68 +
+          paths.activity * 0.065
+        ).toFixed(3);
       }
     };
 
@@ -393,11 +495,39 @@ export function HeroSignal() {
       }
     };
 
+    const advanceSignalHistory = (elapsedSeconds: number) => {
+      const pendingSamples = Math.floor(
+        (elapsedSeconds - lastGeneratedTime) / HISTORY_SAMPLE_INTERVAL,
+      );
+
+      if (pendingSamples <= 0) {
+        return;
+      }
+
+      const sampleCount = Math.min(pendingSamples, MAX_SAMPLES_PER_FRAME);
+
+      if (pendingSamples > MAX_SAMPLES_PER_FRAME) {
+        lastGeneratedTime =
+          elapsedSeconds - sampleCount * HISTORY_SAMPLE_INTERVAL;
+      }
+
+      for (let index = 0; index < sampleCount; index += 1) {
+        lastGeneratedTime += HISTORY_SAMPLE_INTERVAL;
+        const sample = createSignalSample(
+          lastGeneratedTime,
+          HISTORY_SAMPLE_INTERVAL,
+          signalState.envelope,
+        );
+        pushSignalSample(signalState.history, sample);
+      }
+    };
+
     const renderFrame = (timestamp: number) => {
       if (timestamp - lastFrame >= FRAME_INTERVAL_MS) {
         const elapsedSeconds = (timestamp - animationStart) / 1000;
         elapsedBeforePause = elapsedSeconds;
-        writePaths(createSignalPaths(elapsedSeconds));
+        advanceSignalHistory(elapsedSeconds);
+        writePaths(createSignalPaths(signalState.history, elapsedSeconds));
         lastFrame = timestamp;
       }
 
@@ -414,6 +544,8 @@ export function HeroSignal() {
     const showStaticSignal = () => {
       stopAnimation();
       elapsedBeforePause = 0;
+      lastGeneratedTime = 0;
+      signalState = cloneSignalState(INITIAL_SIGNAL_STATE);
       writePaths(INITIAL_PATHS);
     };
 
@@ -485,7 +617,13 @@ export function HeroSignal() {
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
 
-        <filter id="signal-soft-glow" x="-20%" y="-120%" width="140%" height="340%">
+        <filter
+          id="signal-soft-glow"
+          x="-20%"
+          y="-120%"
+          width="140%"
+          height="340%"
+        >
           <feGaussianBlur stdDeviation="8" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />

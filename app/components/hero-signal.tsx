@@ -100,7 +100,7 @@ export function HeroSignal() {
       startAnimation();
     };
 
-    const removeActivationListeners = () => {
+    function removeActivationListeners() {
       if (activationListenersRemoved) {
         return;
       }
@@ -108,12 +108,12 @@ export function HeroSignal() {
       activationListenersRemoved = true;
       window.removeEventListener("pointerdown", activateAudio);
       window.removeEventListener("keydown", activateAudio);
-    };
+    }
 
-    const activateAudio = () => {
+    function activateAudio() {
       removeActivationListeners();
       void audioSource.start().catch(() => undefined);
-    };
+    }
 
     const handleContextLost = (event: Event) => {
       event.preventDefault();

@@ -386,7 +386,7 @@ SignalField createSignalField(float x, float timeSeconds) {
 
   float phraseCycleA = cycleEnvelope(
     timeSeconds,
-    24.0,
+    12.0,
     0.08,
     0.04,
     0.14,
@@ -395,7 +395,7 @@ SignalField createSignalField(float x, float timeSeconds) {
   );
   float phraseCycleB = cycleEnvelope(
     timeSeconds,
-    30.5,
+    15.25,
     0.44,
     0.08,
     0.2,
@@ -404,7 +404,7 @@ SignalField createSignalField(float x, float timeSeconds) {
   );
   float phraseCycleC = cycleEnvelope(
     timeSeconds,
-    18.6,
+    9.3,
     0.72,
     0.06,
     0.16,
@@ -412,9 +412,9 @@ SignalField createSignalField(float x, float timeSeconds) {
     0.8
   );
 
-  float surgeCentreA = fract(0.18 + timeSeconds * 0.014);
-  float valleyCentreB = fract(0.56 + timeSeconds * 0.0105);
-  float surgeCentreC = fract(0.84 + timeSeconds * 0.0185);
+  float surgeCentreA = fract(0.18 + timeSeconds * 0.028);
+  float valleyCentreB = fract(0.56 + timeSeconds * 0.021);
+  float surgeCentreC = fract(0.84 + timeSeconds * 0.037);
 
   float dominantRise = rampDropExcursion(
     x,

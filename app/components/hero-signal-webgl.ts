@@ -30,6 +30,8 @@ const float TAU = 6.28318530718;
 struct SignalField {
   float wave;
   float energy;
+  float coherence;
+  float dispersion;
 };
 
 float hash21(vec2 point) {
@@ -55,9 +57,31 @@ float valueNoise(vec2 point) {
   );
 }
 
+float fractalNoise(vec2 point) {
+  return
+    valueNoise(point) * 0.56 +
+    valueNoise(point * 2.03 + vec2(17.0, 9.0)) * 0.28 +
+    valueNoise(point * 4.01 + vec2(41.0, 23.0)) * 0.16;
+}
+
 float gaussian(float position, float centre, float width) {
   float distanceFromCentre = (position - centre) / width;
   return exp(-distanceFromCentre * distanceFromCentre);
+}
+
+float cycleEnvelope(
+  float timeSeconds,
+  float duration,
+  float phaseOffset,
+  float riseStart,
+  float riseEnd,
+  float fallStart,
+  float fallEnd
+) {
+  float phase = fract(timeSeconds / duration + phaseOffset);
+  float rise = smoothstep(riseStart, riseEnd, phase);
+  float fall = 1.0 - smoothstep(fallStart, fallEnd, phase);
+  return rise * fall;
 }
 
 SignalField createSignalField(float x, float timeSeconds) {
@@ -67,20 +91,26 @@ SignalField createSignalField(float x, float timeSeconds) {
   float high = uAudio.w;
 
   float noisePhase = (valueNoise(vec2(x * 5.4, timeSeconds * 0.16)) - 0.5) * 1.35;
+  float phaseDomain =
+    (fractalNoise(vec2(x * 3.15 + 2.0, timeSeconds * 0.052)) - 0.5) * 0.92;
+
   float structural = sin(TAU * (x * 0.72 + timeSeconds * 0.052) + noisePhase);
   float body = sin(
     TAU * (x * (2.55 + low * 0.28) - timeSeconds * 0.135) +
     sin(TAU * (x * 0.68 + timeSeconds * 0.041)) * 0.72 +
-    noisePhase * 0.52
+    noisePhase * 0.52 +
+    phaseDomain * 0.14
   );
   float harmonic = sin(
     TAU * (x * (7.4 + mid * 1.3) + timeSeconds * 0.34) +
-    structural * 0.58
+    structural * 0.58 +
+    phaseDomain * 0.42
   );
   float detail = sin(
     TAU * (x * (18.5 + high * 5.0) - timeSeconds * 0.76) +
     body * 0.48 +
-    noisePhase * 0.7
+    noisePhase * 0.7 +
+    phaseDomain * 0.68
   );
 
   float localBreathing = 0.5 + 0.5 * sin(
@@ -97,31 +127,121 @@ SignalField createSignalField(float x, float timeSeconds) {
     sin(TAU * (x * 1.1 - timeSeconds * 0.036))
   );
 
+  float coherenceCycleA = cycleEnvelope(
+    timeSeconds,
+    17.8,
+    0.0,
+    0.08,
+    0.24,
+    0.63,
+    0.86
+  );
+  float coherenceCycleB = cycleEnvelope(
+    timeSeconds,
+    23.4,
+    0.37,
+    0.12,
+    0.3,
+    0.68,
+    0.9
+  );
+  float coherenceCentreA = 0.5 + 0.31 * sin(timeSeconds * 0.081 + 0.7);
+  float coherenceCentreB = 0.5 + 0.37 * sin(timeSeconds * 0.061 + 2.4);
+  float coherenceZoneA = gaussian(x, coherenceCentreA, 0.16 + low * 0.035);
+  float coherenceZoneB = gaussian(x, coherenceCentreB, 0.115 + mid * 0.03);
+  float coherence = clamp(
+    coherenceCycleA * coherenceZoneA +
+    coherenceCycleB * coherenceZoneB * 0.78,
+    0.0,
+    1.0
+  );
+
+  float pairSeparation = mix(0.31, 0.055, coherence);
+  float pairPhase =
+    TAU * (x * 4.42 - timeSeconds * 0.17) +
+    phaseDomain * 0.34;
+  float coupledA = sin(pairPhase);
+  float coupledB = sin(
+    TAU *
+      (x * (4.42 + pairSeparation) -
+      timeSeconds * (0.158 + pairSeparation * 0.028)) +
+    1.18 -
+    coherence * 0.96 +
+    phaseDomain * 0.26
+  );
+  float beatPair = (coupledA + coupledB) * 0.5;
+  float beatEnergy = 0.5 + 0.5 * coupledA * coupledB;
+
+  float standingField =
+    sin(TAU * (x * 5.15 + phaseDomain * 0.055)) *
+    sin(TAU * (timeSeconds * 0.064) + structural * 0.38);
+  float counterField = sin(
+    TAU * (x * 3.86 + timeSeconds * 0.118) -
+    body * 0.36 +
+    phaseDomain * 0.44
+  );
+
+  float transferPhase =
+    0.5 +
+    0.5 * sin(
+      TAU * (x * 1.46 - timeSeconds * 0.039) +
+      sin(TAU * (x * 0.52 + timeSeconds * 0.018)) * 0.62
+    );
+  float lowerTransfer = 1.0 - coherence * transferPhase * 0.16;
+  float upperTransfer = 1.0 + coherence * transferPhase * 0.22;
+
   float energy = clamp(
     0.18 +
     localBreathing * 0.22 +
     packetA * (0.2 + rms * 0.23) +
     packetB * (0.12 + low * 0.15) +
     interference * mid * 0.14 +
+    beatEnergy * coherence * 0.16 +
     high * 0.08,
     0.0,
     1.0
   );
 
   float composite =
-    structural * 0.34 +
-    body * 0.37 +
-    harmonic * (0.19 + mid * 0.04) +
-    detail * (0.07 + high * 0.05);
+    structural * 0.34 * lowerTransfer +
+    body * 0.37 * lowerTransfer +
+    harmonic * (0.19 + mid * 0.04) * upperTransfer +
+    detail * (0.07 + high * 0.05) * upperTransfer;
 
   float packetOscillation =
     packetA * sin(TAU * (x * 11.2 - timeSeconds * 0.27) + body * 0.8) * 0.032 +
     packetB * sin(TAU * (x * 4.8 + timeSeconds * 0.16) + structural) * 0.024;
 
-  float amplitude = 0.032 + energy * (0.075 + rms * 0.035);
-  float wave = composite * amplitude + packetOscillation;
+  float coupledOscillation =
+    beatPair * coherence * (0.017 + mid * 0.012) +
+    standingField * coherence * (0.009 + low * 0.008) +
+    counterField * coherenceZoneB * coherenceCycleB * (0.008 + high * 0.006);
 
-  return SignalField(wave, energy);
+  float microInterference =
+    sin(
+      TAU * (x * (12.8 + high * 2.4) + timeSeconds * 0.29) +
+      beatPair * 0.72 +
+      phaseDomain
+    ) *
+    coherence *
+    (0.0035 + high * 0.0045);
+
+  float amplitude = 0.032 + energy * (0.075 + rms * 0.035);
+  float wave =
+    composite * amplitude +
+    packetOscillation +
+    coupledOscillation +
+    microInterference;
+  float dispersion = clamp(
+    high * 0.34 +
+    mid * 0.2 +
+    coherence * 0.32 +
+    abs(beatPair) * coherence * 0.18,
+    0.0,
+    1.0
+  );
+
+  return SignalField(wave, energy, coherence, dispersion);
 }
 
 float strokeMask(float distanceToLine, float halfWidth) {
@@ -136,24 +256,48 @@ float strokeMask(float distanceToLine, float halfWidth) {
 void main() {
   float timeSeconds = mix(7.25, uTime, uMotion);
   float x = clamp(vUv.x, 0.0, 1.0);
+  float sampleOffset = max(1.4 / uResolution.x, 0.00125);
   SignalField field = createSignalField(x, timeSeconds);
-  SignalField neighbour = createSignalField(
-    clamp(x + 0.0024, 0.0, 1.0),
-    timeSeconds + 0.018
+  SignalField leftNeighbour = createSignalField(
+    clamp(x - sampleOffset, 0.0, 1.0),
+    timeSeconds
+  );
+  SignalField rightNeighbour = createSignalField(
+    clamp(x + sampleOffset, 0.0, 1.0),
+    timeSeconds
   );
 
-  float localSlope = neighbour.wave - field.wave;
-  float spectralSplit = 0.0012 + field.energy * 0.0033 + abs(localSlope) * 0.15;
+  float localSlope = (rightNeighbour.wave - leftNeighbour.wave) * 0.5;
+  float localCurvature =
+    rightNeighbour.wave - 2.0 * field.wave + leftNeighbour.wave;
+  float spectralSplit =
+    0.0012 +
+    field.energy * 0.0033 +
+    field.dispersion * 0.0016 +
+    abs(localSlope) * 0.15 +
+    abs(localCurvature) * 0.24;
   float corePosition = 0.5 + field.wave;
-  float cyanPosition = corePosition + localSlope * 0.72 - spectralSplit;
-  float pinkPosition = corePosition - localSlope * 0.54 + spectralSplit;
+  float cyanPosition =
+    corePosition +
+    localSlope * 0.72 -
+    spectralSplit -
+    localCurvature * 0.24;
+  float pinkPosition =
+    corePosition -
+    localSlope * 0.54 +
+    spectralSplit +
+    localCurvature * 0.19;
 
   float coreDistance = abs(vUv.y - corePosition);
   float cyanDistance = abs(vUv.y - cyanPosition);
   float pinkDistance = abs(vUv.y - pinkPosition);
 
-  float coreWidth = max(0.00075, 0.72 / uResolution.y);
-  float spectralWidth = max(0.00062, 0.58 / uResolution.y);
+  float coreWidth =
+    max(0.00075, 0.72 / uResolution.y) *
+    (1.0 + field.coherence * 0.08);
+  float spectralWidth =
+    max(0.00062, 0.58 / uResolution.y) *
+    (1.0 + field.dispersion * 0.11);
 
   float core = strokeMask(coreDistance, coreWidth);
   float cyan = strokeMask(cyanDistance, spectralWidth);
@@ -162,8 +306,13 @@ void main() {
   float coreGlow = exp(-coreDistance * uResolution.y / 8.5);
   float cyanGlow = exp(-cyanDistance * uResolution.y / 12.0);
   float pinkGlow = exp(-pinkDistance * uResolution.y / 12.5);
+  float coherenceGlow =
+    exp(-coreDistance * uResolution.y / 22.0) *
+    field.coherence;
 
-  float edgeFade = smoothstep(0.0, 0.075, x) * (1.0 - smoothstep(0.925, 1.0, x));
+  float edgeFade =
+    smoothstep(0.0, 0.075, x) *
+    (1.0 - smoothstep(0.925, 1.0, x));
   float centreWeight = 1.0 - abs(x * 2.0 - 1.0);
   float coreStrength = mix(0.78, 1.0, pow(centreWeight, 0.7));
 
@@ -178,7 +327,14 @@ void main() {
   colour += white * coreGlow * (0.055 + field.energy * 0.035);
   colour += cyanColour * cyanGlow * (0.025 + uAudio.z * 0.04);
   colour += pinkColour * pinkGlow * (0.027 + uAudio.w * 0.045);
-  colour += violetColour * min(cyanGlow, pinkGlow) * field.energy * 0.035;
+  colour +=
+    violetColour *
+    min(cyanGlow, pinkGlow) *
+    (field.energy * 0.035 + field.coherence * 0.026);
+  colour +=
+    mix(cyanColour, pinkColour, 0.54) *
+    coherenceGlow *
+    (0.018 + field.dispersion * 0.024);
 
   float alpha = max(
     core,
@@ -186,7 +342,10 @@ void main() {
   );
   alpha = max(
     alpha,
-    coreGlow * 0.2 + cyanGlow * 0.08 + pinkGlow * 0.09
+    coreGlow * 0.2 +
+    cyanGlow * 0.08 +
+    pinkGlow * 0.09 +
+    coherenceGlow * 0.055
   );
 
   colour = vec3(1.0) - exp(-colour);
@@ -196,11 +355,7 @@ void main() {
 
 type LivingSignalRenderer = {
   resize: (cssWidth: number, cssHeight: number) => void;
-  render: (
-    timeSeconds: number,
-    audioFrame: SignalAudioFrame,
-    motionAmount?: number,
-  ) => void;
+  render: (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount?: number) => void;
   dispose: () => void;
 };
 
@@ -211,11 +366,7 @@ type UniformLocations = {
   audio: WebGLUniformLocation;
 };
 
-function compileShader(
-  context: WebGL2RenderingContext,
-  type: number,
-  source: string,
-): WebGLShader {
+function compileShader(context: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = context.createShader(type);
 
   if (!shader) {
@@ -235,16 +386,8 @@ function compileShader(
 }
 
 function createProgram(context: WebGL2RenderingContext): WebGLProgram {
-  const vertexShader = compileShader(
-    context,
-    context.VERTEX_SHADER,
-    VERTEX_SHADER_SOURCE,
-  );
-  const fragmentShader = compileShader(
-    context,
-    context.FRAGMENT_SHADER,
-    FRAGMENT_SHADER_SOURCE,
-  );
+  const vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+  const fragmentShader = compileShader(context, context.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
   const program = context.createProgram();
 
   if (!program) {
@@ -282,9 +425,7 @@ function getUniformLocation(
   return location;
 }
 
-export function createLivingSignalRenderer(
-  canvas: HTMLCanvasElement,
-): LivingSignalRenderer | null {
+export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSignalRenderer | null {
   const context = canvas.getContext("webgl2", {
     alpha: true,
     antialias: false,
@@ -351,13 +492,8 @@ export function createLivingSignalRenderer(
         devicePixelRatio,
         window.innerWidth <= 768 ? MOBILE_PIXEL_RATIO : MAX_PIXEL_RATIO,
       );
-      const pixelBudgetRatio = Math.sqrt(
-        MAX_RENDER_PIXELS / (safeWidth * safeHeight),
-      );
-      const renderRatio = Math.max(
-        1,
-        Math.min(preferredRatio, pixelBudgetRatio),
-      );
+      const pixelBudgetRatio = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
+      const renderRatio = Math.max(1, Math.min(preferredRatio, pixelBudgetRatio));
       const width = Math.max(1, Math.floor(safeWidth * renderRatio));
       const height = Math.max(1, Math.floor(safeHeight * renderRatio));
 
@@ -369,19 +505,11 @@ export function createLivingSignalRenderer(
       context.viewport(0, 0, width, height);
     };
 
-    const render = (
-      timeSeconds: number,
-      audioFrame: SignalAudioFrame,
-      motionAmount = 1,
-    ) => {
+    const render = (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount = 1) => {
       context.clear(context.COLOR_BUFFER_BIT);
       context.useProgram(program);
       context.bindVertexArray(vertexArray);
-      context.uniform2f(
-        uniforms.resolution,
-        canvas.width,
-        canvas.height,
-      );
+      context.uniform2f(uniforms.resolution, canvas.width, canvas.height);
       context.uniform1f(uniforms.time, timeSeconds);
       context.uniform1f(uniforms.motion, motionAmount);
       context.uniform4f(

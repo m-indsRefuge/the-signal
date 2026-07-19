@@ -4,16 +4,17 @@ const VIEWBOX_WIDTH = 1600;
 const VIEWBOX_HEIGHT = 320;
 const SAMPLE_COUNT = 320;
 const FRAME_INTERVAL_MS = 1000 / 60;
-const HISTORY_SAMPLE_RATE = 120;
+const HISTORY_SAMPLE_RATE = 60;
 const HISTORY_SAMPLE_INTERVAL = 1 / HISTORY_SAMPLE_RATE;
-const MAX_SAMPLES_PER_FRAME = 18;
+const MAX_SAMPLES_PER_FRAME = 12;
+const SIGNAL_TIME_SCALE = 0.5;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-const ENVELOPE_ATTACK_SECONDS = 0.035;
-const ENVELOPE_HOLD_SECONDS = 0.045;
-const ENVELOPE_RELEASE_SECONDS = 0.24;
+const ENVELOPE_ATTACK_SECONDS = 0.05;
+const ENVELOPE_HOLD_SECONDS = 0.07;
+const ENVELOPE_RELEASE_SECONDS = 0.3;
 const CYAN_DELAY_SAMPLES = 1;
-const PINK_DELAY_SAMPLES = 3;
+const PINK_DELAY_SAMPLES = 2;
 
 const EVENT_CYCLE_DURATIONS = [16.4, 18.25, 14.8, 19.1] as const;
 const EVENT_APPROACH_DURATION = 2;
@@ -298,7 +299,8 @@ function createSignalSample(
   deltaSeconds: number,
   envelopeState: EnvelopeState,
 ): SignalSample {
-  const broadband = createBroadbandState(timeSeconds);
+  const signalTimeSeconds = timeSeconds * SIGNAL_TIME_SCALE;
+  const broadband = createBroadbandState(signalTimeSeconds);
   const envelope = followEnvelope(
     broadband.activity,
     timeSeconds,
@@ -307,26 +309,27 @@ function createSignalSample(
   );
   const transientStrength = createTransientStrength(timeSeconds);
 
-  const structuralPhase = fractalNoise(timeSeconds * 0.31, 307) * 0.38;
+  const structuralPhase = fractalNoise(signalTimeSeconds * 0.31, 307) * 0.38;
   const structuralCarrier =
-    Math.sin(timeSeconds * 2.4 + structuralPhase) * 8.5 +
-    Math.sin(timeSeconds * 5.3 + 1.1) * 4.2 +
-    Math.sin(timeSeconds * 9.1 - 0.45) * 1.8;
+    Math.sin(signalTimeSeconds * 2.4 + structuralPhase) * 8.5 +
+    Math.sin(signalTimeSeconds * 5.3 + 1.1) * 4.2 +
+    Math.sin(signalTimeSeconds * 9.1 - 0.45) * 1.8;
 
   let broadbandCarrier = 0;
 
   for (const band of broadband.bands) {
     broadbandCarrier +=
-      Math.sin(timeSeconds * band.temporalSpeed + band.phase) * band.amplitude;
+      Math.sin(signalTimeSeconds * band.temporalSpeed + band.phase) *
+      band.amplitude;
   }
 
   const airTexture =
-    fractalNoise(timeSeconds * 18.5 + 3, 503) * (1.4 + envelope * 2.6);
+    fractalNoise(signalTimeSeconds * 18.5 + 3, 503) * (1.4 + envelope * 2.6);
   const eventCarrier =
     transientStrength *
-    (Math.sin(timeSeconds * 31 + 0.7) * 16 +
-      Math.sin(timeSeconds * 53 - 0.9) * 7 +
-      Math.sin(timeSeconds * 17.5 + 1.4) * 4.5);
+    (Math.sin(signalTimeSeconds * 31 + 0.7) * 16 +
+      Math.sin(signalTimeSeconds * 53 - 0.9) * 7 +
+      Math.sin(signalTimeSeconds * 17.5 + 1.4) * 4.5);
   const phraseGain = 0.18 + envelope * 0.98;
   const uncompressedSignal =
     structuralCarrier * (0.62 + envelope * 0.2) +
@@ -370,6 +373,7 @@ function createSignalPoints(
   offsetDirection = 0,
 ): SignalPoint[] {
   const midpoint = VIEWBOX_HEIGHT / 2;
+  const visualTimeSeconds = timeSeconds * SIGNAL_TIME_SCALE;
 
   return Array.from({ length: SAMPLE_COUNT + 1 }, (_, index) => {
     const progress = index / SAMPLE_COUNT;
@@ -382,7 +386,8 @@ function createSignalPoints(
       memoryMix,
     );
     const energy = Math.max(current.energy, delayed.energy * memoryMix);
-    const chromaticDrift = Math.sin(index * 0.14 - timeSeconds * 3.2) * 0.48;
+    const chromaticDrift =
+      Math.sin(index * 0.14 - visualTimeSeconds * 3.2) * 0.48;
     const y =
       midpoint +
       rememberedValue +

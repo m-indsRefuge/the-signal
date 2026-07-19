@@ -3,47 +3,20 @@ html {
 }
 
 body {
-  background-color: #050608;
-  background-image:
-    radial-gradient(
-      circle at 52% 42%,
-      rgba(5, 6, 8, 0.48) 0%,
-      rgba(5, 6, 8, 0.62) 48%,
-      rgba(5, 6, 8, 0.82) 100%
-    ),
-    url("/media/the-signal-background.webp");
-  background-position:
-    center,
-    center top;
-  background-repeat: no-repeat;
-  background-size: cover, cover;
-  background-attachment: fixed, fixed;
+  background: transparent;
 }
 
 body .signal-shell--composition-reset {
-  background: rgba(5, 6, 8, 0.55);
+  background: rgba(5, 6, 8, 0.52);
 }
 
 @media (max-width: 48rem) {
-  body {
-    background-attachment: scroll, scroll;
-    background-position:
-      center,
-      58% top;
-  }
-
   body .signal-shell--composition-reset {
-    background: rgba(5, 6, 8, 0.66);
+    background: rgba(5, 6, 8, 0.62);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  body {
-    background-image:
-      linear-gradient(rgba(5, 6, 8, 0.9), rgba(5, 6, 8, 0.92)),
-      url("/media/the-signal-background.webp");
-  }
-
   body .signal-shell--composition-reset {
     background: rgba(5, 6, 8, 0.8);
   }

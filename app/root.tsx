@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { SpaceBackground } from "./components/space-background";
 import "./app.css";
 import "./site-background.css";
 
@@ -31,6 +32,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
 
       <body>
+        <SpaceBackground />
+
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>

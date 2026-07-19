@@ -100,6 +100,40 @@ float asymmetricPulse(
   return rise * fall;
 }
 
+float rampDropExcursion(
+  float position,
+  float centre,
+  float riseWidth,
+  float dropWidth,
+  float risePower
+) {
+  float offset = wrappedOffset(position, centre);
+  float riseProgress = clamp((offset + riseWidth) / riseWidth, 0.0, 1.0);
+  float longRise = pow(riseProgress, risePower);
+  float sharpDrop = 1.0 - smoothstep(0.0, dropWidth, offset);
+  return longRise * sharpDrop;
+}
+
+float collapseRecoveryExcursion(
+  float position,
+  float centre,
+  float collapseWidth,
+  float recoveryWidth,
+  float recoveryPower
+) {
+  float offset = wrappedOffset(position, centre);
+  float collapse = smoothstep(-collapseWidth, 0.0, offset);
+  float recoveryProgress = clamp(offset / recoveryWidth, 0.0, 1.0);
+  float recovery = 1.0 - pow(recoveryProgress, recoveryPower);
+  return collapse * recovery;
+}
+
+float softLimit(float value, float limit) {
+  float normalized = value / limit;
+  float denominator = pow(1.0 + pow(abs(normalized), 4.0), 0.25);
+  return limit * normalized / denominator;
+}
+
 float cycleEnvelope(
   float timeSeconds,
   float duration,
@@ -138,7 +172,7 @@ SignalField createSignalField(float x, float timeSeconds) {
   float crest = uDynamics.y;
 
   float audioDomainWarp =
-    (valueNoise(vec2(x * 2.7 + 4.0, timeSeconds * 0.11)) - 0.5) * 0.014;
+    (valueNoise(vec2(x * 2.7 + 4.0, timeSeconds * 0.11)) - 0.5) * 0.012;
   AudioTrace liveTrace = sampleAudioTrace(x + audioDomainWarp);
   AudioTrace broadTrace = sampleAudioTrace(x * 0.82 + 0.09);
 
@@ -352,73 +386,103 @@ SignalField createSignalField(float x, float timeSeconds) {
 
   float phraseCycleA = cycleEnvelope(
     timeSeconds,
-    21.0,
+    24.0,
     0.08,
     0.04,
-    0.16,
-    0.7,
-    0.92
+    0.14,
+    0.64,
+    0.86
   );
   float phraseCycleB = cycleEnvelope(
     timeSeconds,
-    27.5,
-    0.46,
+    30.5,
+    0.44,
     0.08,
-    0.23,
-    0.66,
-    0.9
+    0.2,
+    0.61,
+    0.84
   );
   float phraseCycleC = cycleEnvelope(
     timeSeconds,
-    16.8,
-    0.71,
+    18.6,
+    0.72,
     0.06,
-    0.18,
-    0.68,
-    0.88
+    0.16,
+    0.58,
+    0.8
   );
 
   float surgeCentreA = fract(0.18 + timeSeconds * 0.014);
-  float valleyCentreB = fract(0.58 + timeSeconds * 0.011);
-  float surgeCentreC = fract(0.84 + timeSeconds * 0.019);
+  float valleyCentreB = fract(0.56 + timeSeconds * 0.0105);
+  float surgeCentreC = fract(0.84 + timeSeconds * 0.0185);
 
-  float surgeA = asymmetricPulse(x, surgeCentreA, 0.22, 0.026) * phraseCycleA;
-  float valleyB = asymmetricPulse(x, valleyCentreB, 0.085, 0.19) * phraseCycleB;
-  float surgeC = asymmetricPulse(x, surgeCentreC, 0.15, 0.034) * phraseCycleC;
-
-  float surgeRecovery = asymmetricPulse(
+  float dominantRise = rampDropExcursion(
     x,
-    fract(surgeCentreA + 0.045),
-    0.018,
-    0.15
+    surgeCentreA,
+    0.255,
+    0.011,
+    1.08
   ) * phraseCycleA;
-  float valleyRecovery = asymmetricPulse(
+  float postRiseCollapse = collapseRecoveryExcursion(
     x,
-    fract(valleyCentreB + 0.06),
-    0.026,
-    0.18
+    fract(surgeCentreA + 0.031),
+    0.011,
+    0.115,
+    0.72
+  ) * phraseCycleA;
+  float dominantValley = collapseRecoveryExcursion(
+    x,
+    valleyCentreB,
+    0.014,
+    0.255,
+    0.78
   ) * phraseCycleB;
+  float valleyRebound = rampDropExcursion(
+    x,
+    fract(valleyCentreB + 0.095),
+    0.095,
+    0.022,
+    0.9
+  ) * phraseCycleB;
+  float secondaryRise = rampDropExcursion(
+    x,
+    surgeCentreC,
+    0.165,
+    0.018,
+    1.0
+  ) * phraseCycleC;
+
+  float eventShoulder =
+    asymmetricPulse(
+      x,
+      fract(surgeCentreC + 0.048),
+      0.022,
+      0.12
+    ) *
+    phraseCycleC;
 
   float baselineDrift =
-    sin(timeSeconds * 0.069 + 0.6) * 0.017 +
-    sin(timeSeconds * 0.023 + 2.1) * 0.011;
+    sin(timeSeconds * 0.069 + 0.6) * 0.015 +
+    sin(timeSeconds * 0.023 + 2.1) * 0.009;
   float phraseBias =
-    (broadTrace.envelope - 0.5) * 0.022 +
-    (low - mid) * 0.013;
-  float eventGain = 0.78 + rms * 0.72 + crest * 0.42 + flux * 0.2;
+    (broadTrace.envelope - 0.5) * 0.02 +
+    (low - mid) * 0.012;
+  float eventGain = 0.94 + rms * 0.8 + crest * 0.52 + flux * 0.24;
+  float phraseDrive = 0.74 + broadTrace.envelope * 0.32 + low * 0.12;
   float structuralExcursion =
     baselineDrift +
     phraseBias +
-    surgeA * (0.105 + low * 0.045) * eventGain -
-    surgeRecovery * (0.034 + crest * 0.018) -
-    valleyB * (0.098 + rms * 0.052) * eventGain +
-    valleyRecovery * (0.038 + mid * 0.02) +
-    surgeC * (0.072 + flux * 0.045) * eventGain;
+    dominantRise * (0.17 + low * 0.075) * eventGain * phraseDrive -
+    postRiseCollapse * (0.09 + rms * 0.045) * eventGain -
+    dominantValley * (0.155 + rms * 0.085) * eventGain +
+    valleyRebound * (0.09 + mid * 0.04) * eventGain +
+    secondaryRise * (0.115 + flux * 0.07) * eventGain -
+    eventShoulder * (0.038 + crest * 0.025);
 
   float audioExcursion =
     liveTrace.wave *
-    (0.018 + liveTrace.envelope * 0.034 + crest * 0.018) +
-    broadTrace.wave * (0.009 + low * 0.012);
+    (0.02 + liveTrace.envelope * 0.039 + crest * 0.021) +
+    broadTrace.wave * (0.01 + low * 0.014);
 
   float amplitude = 0.032 + energy * (0.075 + rms * 0.035);
   float macroMotion =
@@ -431,15 +495,15 @@ SignalField createSignalField(float x, float timeSeconds) {
     coupledOscillation +
     microInterference +
     liveRipple;
-  float macroGain = 1.92 + rms * 0.42 + crest * 0.22;
-  float microGain = 1.08 + high * 0.09;
-  float expandedWave =
+  float macroGain = 1.76 + rms * 0.38 + crest * 0.2;
+  float microGain = 1.05 + high * 0.08;
+  float baseExpanded =
     macroMotion * macroGain +
     microMotion * microGain +
-    structuralExcursion +
     audioExcursion;
-  float waveLimit = 0.32;
-  float wave = tanh(expandedWave / waveLimit) * waveLimit;
+  float baseWave = tanh(baseExpanded / 0.205) * 0.205;
+  float eventWave = softLimit(structuralExcursion, 0.31);
+  float wave = softLimit(baseWave + eventWave, 0.385);
 
   float dispersion = clamp(
     high * 0.34 +
@@ -483,22 +547,22 @@ void main() {
   float localCurvature =
     rightNeighbour.wave - 2.0 * field.wave + leftNeighbour.wave;
   float spectralSplit =
-    0.0011 +
-    field.energy * 0.003 +
-    field.dispersion * 0.0014 +
-    abs(localSlope) * 0.072 +
-    abs(localCurvature) * 0.12;
+    0.001 +
+    field.energy * 0.0028 +
+    field.dispersion * 0.0013 +
+    abs(localSlope) * 0.058 +
+    abs(localCurvature) * 0.095;
   float corePosition = 0.5 + field.wave;
   float cyanPosition =
     corePosition +
-    localSlope * 0.42 -
+    localSlope * 0.35 -
     spectralSplit -
-    localCurvature * 0.13;
+    localCurvature * 0.105;
   float pinkPosition =
     corePosition -
-    localSlope * 0.33 +
+    localSlope * 0.28 +
     spectralSplit +
-    localCurvature * 0.105;
+    localCurvature * 0.086;
 
   float coreDistance = abs(vUv.y - corePosition);
   float cyanDistance = abs(vUv.y - cyanPosition);
@@ -534,30 +598,30 @@ void main() {
   vec3 violetColour = vec3(0.66, 0.5, 1.0);
 
   vec3 colour = white * core * coreStrength * 2.2;
-  colour += cyanColour * cyan * (0.4 + field.energy * 0.21);
-  colour += pinkColour * pink * (0.38 + field.energy * 0.24);
+  colour += cyanColour * cyan * (0.38 + field.energy * 0.2);
+  colour += pinkColour * pink * (0.36 + field.energy * 0.22);
   colour += white * coreGlow * (0.055 + field.energy * 0.035);
-  colour += cyanColour * cyanGlow * (0.023 + uAudio.z * 0.035);
-  colour += pinkColour * pinkGlow * (0.025 + uAudio.w * 0.04);
+  colour += cyanColour * cyanGlow * (0.022 + uAudio.z * 0.033);
+  colour += pinkColour * pinkGlow * (0.024 + uAudio.w * 0.038);
   colour +=
     violetColour *
     min(cyanGlow, pinkGlow) *
-    (field.energy * 0.031 + field.coherence * 0.023);
+    (field.energy * 0.029 + field.coherence * 0.021);
   colour +=
     mix(cyanColour, pinkColour, 0.54) *
     coherenceGlow *
-    (0.017 + field.dispersion * 0.021);
+    (0.016 + field.dispersion * 0.02);
 
   float alpha = max(
     core,
-    max(cyan * 0.54, pink * 0.52)
+    max(cyan * 0.52, pink * 0.5)
   );
   alpha = max(
     alpha,
     coreGlow * 0.2 +
-    cyanGlow * 0.072 +
-    pinkGlow * 0.08 +
-    coherenceGlow * 0.05
+    cyanGlow * 0.068 +
+    pinkGlow * 0.075 +
+    coherenceGlow * 0.047
   );
 
   colour = vec3(1.0) - exp(-colour);

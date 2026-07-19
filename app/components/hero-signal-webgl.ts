@@ -532,14 +532,14 @@ float residueFleck(
 ) {
   float outwardDirection = sign(distanceFromCore + 0.00001);
   vec2 residueDomain = vec2(
-    x * 76.0 - timeSeconds * 1.15,
-    abs(distanceFromCore) * 122.0 - timeSeconds * (0.18 + energyGate * 0.22)
+    x * 54.0 - timeSeconds * 0.92,
+    abs(distanceFromCore) * 78.0 - timeSeconds * (0.14 + energyGate * 0.2)
   );
   vec2 cell = floor(residueDomain);
   vec2 local = fract(residueDomain) - 0.5;
   float seed = hash21(cell + vec2(19.0, 43.0));
-  float sparseGate = smoothstep(0.955, 0.995, seed);
-  float shape = exp(-dot(local * vec2(4.8, 2.0), local * vec2(4.8, 2.0)) * 5.0);
+  float sparseGate = smoothstep(0.88, 0.975, seed);
+  float shape = exp(-dot(local * vec2(3.2, 1.45), local * vec2(3.2, 1.45)) * 3.2);
   float sideVariation = 0.72 + 0.28 * hash21(cell + vec2(7.0, 91.0));
   float directionalBias = mix(0.78, 1.0, step(0.0, outwardDirection));
   return sparseGate * shape * sideVariation * directionalBias * energyGate;
@@ -560,7 +560,7 @@ void main() {
   );
   SignalField recentMemory = createSignalField(
     x,
-    timeSeconds - 0.032 * uMotion
+    timeSeconds - 0.24 * uMotion
   );
 
   float localSlope = (rightNeighbour.wave - leftNeighbour.wave) * 0.5;
@@ -568,7 +568,7 @@ void main() {
     rightNeighbour.wave - 2.0 * field.wave + leftNeighbour.wave;
   float temporalDelta = recentMemory.wave - field.wave;
   float temporalActivity = clamp(
-    abs(temporalDelta) * 54.0 +
+    abs(temporalDelta) * 18.0 +
     abs(localSlope) * 7.5 +
     abs(localCurvature) * 22.0 +
     field.energy * 0.34 +
@@ -579,32 +579,51 @@ void main() {
   );
 
   float spectralSplit =
-    0.001 +
-    field.energy * 0.0032 +
-    field.dispersion * 0.0018 +
-    temporalActivity * 0.0016 +
-    abs(localSlope) * 0.061 +
-    abs(localCurvature) * 0.104;
+    0.003 +
+    field.energy * 0.006 +
+    field.dispersion * 0.004 +
+    temporalActivity * 0.005 +
+    abs(localSlope) * 0.085 +
+    abs(localCurvature) * 0.16;
   float corePosition = 0.5 + field.wave;
   float cyanPosition =
     corePosition +
-    localSlope * 0.37 -
+    localSlope * 0.46 -
     spectralSplit -
-    localCurvature * 0.112;
+    localCurvature * 0.16;
   float pinkPosition =
     corePosition -
-    localSlope * 0.3 +
+    localSlope * 0.4 +
     spectralSplit +
-    localCurvature * 0.092;
+    localCurvature * 0.14;
 
-  float recentGhostPosition = clamp(0.5 + recentMemory.wave, 0.035, 0.965);
+  float memoryDirection = sign(
+    temporalDelta + localSlope * 0.22 + 0.00001
+  );
+  float memorySeparation =
+    memoryDirection * (0.008 + temporalActivity * 0.026);
+
+  float recentGhostPosition = clamp(
+    corePosition +
+    temporalDelta * 0.22 +
+    memorySeparation * 0.45 -
+    localCurvature * 0.018,
+    0.035,
+    0.965
+  );
   float middleGhostPosition = clamp(
-    corePosition + temporalDelta * 1.85 - localCurvature * 0.025,
+    corePosition +
+    temporalDelta * 0.55 +
+    memorySeparation * 0.85 -
+    localCurvature * 0.035,
     0.035,
     0.965
   );
   float oldGhostPosition = clamp(
-    corePosition + temporalDelta * 3.05 - localCurvature * 0.052,
+    corePosition +
+    temporalDelta +
+    memorySeparation * 1.25 -
+    localCurvature * 0.065,
     0.035,
     0.965
   );
@@ -620,43 +639,43 @@ void main() {
     max(0.00075, 0.72 / uResolution.y) *
     (1.0 + field.coherence * 0.08 + uDynamics.y * 0.035);
   float spectralWidth =
-    max(0.00064, 0.6 / uResolution.y) *
-    (1.0 + field.dispersion * 0.15 + temporalActivity * 0.09);
+    max(0.0011, 0.92 / uResolution.y) *
+    (1.0 + field.dispersion * 0.28 + temporalActivity * 0.2);
   float ghostWidth =
-    max(0.00072, 0.68 / uResolution.y) *
-    (1.0 + temporalActivity * 0.18 + field.dispersion * 0.12);
+    max(0.00145, 1.2 / uResolution.y) *
+    (1.0 + temporalActivity * 0.34 + field.dispersion * 0.22);
 
   float core = strokeMask(coreDistance, coreWidth);
   float cyan = strokeMask(cyanDistance, spectralWidth);
   float pink = strokeMask(pinkDistance, spectralWidth);
   float recentGhost = strokeMask(recentGhostDistance, ghostWidth);
-  float middleGhost = strokeMask(middleGhostDistance, ghostWidth * 1.08);
-  float oldGhost = strokeMask(oldGhostDistance, ghostWidth * 1.18);
+  float middleGhost = strokeMask(middleGhostDistance, ghostWidth * 1.22);
+  float oldGhost = strokeMask(oldGhostDistance, ghostWidth * 1.48);
 
   float coreGlow = exp(-coreDistance * uResolution.y / 8.5);
   float cyanGlow = exp(-cyanDistance * uResolution.y / 12.0);
   float pinkGlow = exp(-pinkDistance * uResolution.y / 12.5);
-  float recentGhostGlow = exp(-recentGhostDistance * uResolution.y / 14.5);
-  float middleGhostGlow = exp(-middleGhostDistance * uResolution.y / 18.0);
-  float oldGhostGlow = exp(-oldGhostDistance * uResolution.y / 22.0);
+  float recentGhostGlow = exp(-recentGhostDistance * uResolution.y / 24.0);
+  float middleGhostGlow = exp(-middleGhostDistance * uResolution.y / 34.0);
+  float oldGhostGlow = exp(-oldGhostDistance * uResolution.y / 48.0);
   float coherenceGlow =
     exp(-coreDistance * uResolution.y / 22.0) *
     field.coherence;
 
   float memoryStrength =
-    (0.18 + temporalActivity * 0.82) *
-    (0.62 + uMotion * 0.38);
-  float recentMemoryStrength = memoryStrength * (0.52 + field.energy * 0.2);
-  float middleMemoryStrength = memoryStrength * (0.32 + field.dispersion * 0.15);
-  float oldMemoryStrength = memoryStrength * (0.2 + uDynamics.x * 0.12);
+    (0.58 + temporalActivity * 0.72) *
+    (0.72 + uMotion * 0.28);
+  float recentMemoryStrength = memoryStrength * (1.0 + field.energy * 0.35);
+  float middleMemoryStrength = memoryStrength * (0.76 + field.dispersion * 0.26);
+  float oldMemoryStrength = memoryStrength * (0.58 + uDynamics.x * 0.22);
 
   float detachmentDistance = abs(vUv.y - corePosition);
   float detachmentBand =
     smoothstep(0.014, 0.035, detachmentDistance) *
     (1.0 - smoothstep(0.11, 0.17, detachmentDistance));
   float detachmentGate = smoothstep(
-    0.46,
-    0.92,
+    0.24,
+    0.72,
     field.energy * 0.52 +
     field.dispersion * 0.26 +
     temporalActivity * 0.34 +
@@ -689,17 +708,17 @@ void main() {
   );
 
   vec3 colour = white * core * coreStrength * 2.24;
-  colour += cyanColour * cyan * (0.42 + field.energy * 0.22);
-  colour += pinkColour * pink * (0.4 + field.energy * 0.24);
+  colour += cyanColour * cyan * (0.72 + field.energy * 0.34);
+  colour += pinkColour * pink * (0.68 + field.energy * 0.36);
   colour += cyanColour * recentGhost * recentMemoryStrength;
   colour += violetColour * middleGhost * middleMemoryStrength;
   colour += pinkColour * oldGhost * oldMemoryStrength;
   colour += white * coreGlow * (0.056 + field.energy * 0.038);
   colour += cyanColour * cyanGlow * (0.025 + uAudio.z * 0.038);
   colour += pinkColour * pinkGlow * (0.027 + uAudio.w * 0.043);
-  colour += cyanColour * recentGhostGlow * recentMemoryStrength * 0.18;
-  colour += violetColour * middleGhostGlow * middleMemoryStrength * 0.22;
-  colour += pinkColour * oldGhostGlow * oldMemoryStrength * 0.24;
+  colour += cyanColour * recentGhostGlow * recentMemoryStrength * 0.3;
+  colour += violetColour * middleGhostGlow * middleMemoryStrength * 0.34;
+  colour += pinkColour * oldGhostGlow * oldMemoryStrength * 0.38;
   colour +=
     violetColour *
     min(cyanGlow, pinkGlow) *
@@ -708,7 +727,7 @@ void main() {
     mix(cyanColour, pinkColour, 0.54) *
     coherenceGlow *
     (0.017 + field.dispersion * 0.022);
-  colour += residueColour * residue * (0.34 + temporalActivity * 0.28);
+  colour += residueColour * residue * (0.78 + temporalActivity * 0.52);
 
   float alpha = max(
     core,
@@ -717,10 +736,10 @@ void main() {
       max(
         pink * 0.54,
         max(
-          recentGhost * recentMemoryStrength * 0.62,
+          recentGhost * recentMemoryStrength * 0.92,
           max(
-            middleGhost * middleMemoryStrength * 0.52,
-            oldGhost * oldMemoryStrength * 0.46
+            middleGhost * middleMemoryStrength * 0.8,
+            oldGhost * oldMemoryStrength * 0.68
           )
         )
       )
@@ -731,11 +750,11 @@ void main() {
     coreGlow * 0.2 +
     cyanGlow * 0.072 +
     pinkGlow * 0.08 +
-    recentGhostGlow * recentMemoryStrength * 0.11 +
-    middleGhostGlow * middleMemoryStrength * 0.12 +
-    oldGhostGlow * oldMemoryStrength * 0.13 +
+    recentGhostGlow * recentMemoryStrength * 0.24 +
+    middleGhostGlow * middleMemoryStrength * 0.26 +
+    oldGhostGlow * oldMemoryStrength * 0.28 +
     coherenceGlow * 0.05 +
-    residue * 0.42
+    residue * 0.72
   );
 
   colour = vec3(1.0) - exp(-colour);
@@ -745,11 +764,7 @@ void main() {
 
 type LivingSignalRenderer = {
   resize: (cssWidth: number, cssHeight: number) => void;
-  render: (
-    timeSeconds: number,
-    audioFrame: SignalAudioFrame,
-    motionAmount?: number,
-  ) => void;
+  render: (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount?: number) => void;
   dispose: () => void;
 };
 
@@ -762,11 +777,7 @@ type UniformLocations = {
   audioTexture: WebGLUniformLocation;
 };
 
-function compileShader(
-  context: WebGL2RenderingContext,
-  type: number,
-  source: string,
-): WebGLShader {
+function compileShader(context: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = context.createShader(type);
 
   if (!shader) {
@@ -777,8 +788,7 @@ function compileShader(
   context.compileShader(shader);
 
   if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-    const log =
-      context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
+    const log = context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
     context.deleteShader(shader);
     throw new Error(log);
   }
@@ -787,16 +797,8 @@ function compileShader(
 }
 
 function createProgram(context: WebGL2RenderingContext): WebGLProgram {
-  const vertexShader = compileShader(
-    context,
-    context.VERTEX_SHADER,
-    VERTEX_SHADER_SOURCE,
-  );
-  const fragmentShader = compileShader(
-    context,
-    context.FRAGMENT_SHADER,
-    FRAGMENT_SHADER_SOURCE,
-  );
+  const vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+  const fragmentShader = compileShader(context, context.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
   const program = context.createProgram();
 
   if (!program) {
@@ -812,8 +814,7 @@ function createProgram(context: WebGL2RenderingContext): WebGLProgram {
   context.deleteShader(fragmentShader);
 
   if (!context.getProgramParameter(program, context.LINK_STATUS)) {
-    const log =
-      context.getProgramInfoLog(program) || "Unknown WebGL link error.";
+    const log = context.getProgramInfoLog(program) || "Unknown WebGL link error.";
     context.deleteProgram(program);
     throw new Error(log);
   }
@@ -835,9 +836,7 @@ function getUniformLocation(
   return location;
 }
 
-export function createLivingSignalRenderer(
-  canvas: HTMLCanvasElement,
-): LivingSignalRenderer | null {
+export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSignalRenderer | null {
   const context = canvas.getContext("webgl2", {
     alpha: true,
     antialias: false,
@@ -882,40 +881,17 @@ export function createLivingSignalRenderer(
     }
 
     context.enableVertexAttribArray(positionLocation);
-    context.vertexAttribPointer(
-      positionLocation,
-      2,
-      context.FLOAT,
-      false,
-      0,
-      0,
-    );
+    context.vertexAttribPointer(positionLocation, 2, context.FLOAT, false, 0, 0);
     context.bindVertexArray(null);
     context.bindBuffer(context.ARRAY_BUFFER, null);
 
     context.activeTexture(context.TEXTURE0);
     context.bindTexture(context.TEXTURE_2D, audioTexture);
     context.pixelStorei(context.UNPACK_ALIGNMENT, 1);
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_MIN_FILTER,
-      context.LINEAR,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_MAG_FILTER,
-      context.LINEAR,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_WRAP_S,
-      context.CLAMP_TO_EDGE,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_WRAP_T,
-      context.CLAMP_TO_EDGE,
-    );
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.LINEAR);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
     context.texImage2D(
       context.TEXTURE_2D,
       0,
@@ -951,13 +927,8 @@ export function createLivingSignalRenderer(
         devicePixelRatio,
         window.innerWidth <= 768 ? MOBILE_PIXEL_RATIO : MAX_PIXEL_RATIO,
       );
-      const pixelBudgetRatio = Math.sqrt(
-        MAX_RENDER_PIXELS / (safeWidth * safeHeight),
-      );
-      const renderRatio = Math.max(
-        1,
-        Math.min(preferredRatio, pixelBudgetRatio),
-      );
+      const pixelBudgetRatio = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
+      const renderRatio = Math.max(1, Math.min(preferredRatio, pixelBudgetRatio));
       const width = Math.max(1, Math.floor(safeWidth * renderRatio));
       const height = Math.max(1, Math.floor(safeHeight * renderRatio));
 
@@ -969,11 +940,7 @@ export function createLivingSignalRenderer(
       context.viewport(0, 0, width, height);
     };
 
-    const render = (
-      timeSeconds: number,
-      audioFrame: SignalAudioFrame,
-      motionAmount = 1,
-    ) => {
+    const render = (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount = 1) => {
       context.clear(context.COLOR_BUFFER_BIT);
       context.useProgram(program);
       context.bindVertexArray(vertexArray);
@@ -1015,7 +982,8 @@ export function createLivingSignalRenderer(
     };
 
     return { resize, render, dispose };
-  } catch {
+  } catch (error) {
+    canvas.dataset.rendererError = error instanceof Error ? error.message : String(error);
     return null;
   }
 }

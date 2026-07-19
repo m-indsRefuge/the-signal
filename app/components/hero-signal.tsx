@@ -55,11 +55,7 @@ export function HeroSignal() {
       if (timestamp - lastFrame >= FRAME_INTERVAL_MS) {
         const elapsedSeconds = (timestamp - animationStart) / 1000;
         elapsedBeforePause = elapsedSeconds;
-        renderer.render(
-          elapsedSeconds,
-          audioSource.sample(elapsedSeconds),
-          1,
-        );
+        renderer.render(elapsedSeconds, audioSource.sample(elapsedSeconds), 1);
         lastFrame = timestamp;
       }
 

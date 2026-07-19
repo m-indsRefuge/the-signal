@@ -121,11 +121,7 @@ export function HeroSignal() {
 
   return (
     <div ref={containerRef} className="hero-signal" data-renderer="webgl">
-      <canvas
-        ref={canvasRef}
-        className="hero-signal__canvas"
-        aria-hidden="true"
-      />
+      <canvas ref={canvasRef} className="hero-signal__canvas" aria-hidden="true" />
 
       <svg
         className="hero-signal__fallback"

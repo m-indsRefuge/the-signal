@@ -631,11 +631,7 @@ void main() {
 
 type LivingSignalRenderer = {
   resize: (cssWidth: number, cssHeight: number) => void;
-  render: (
-    timeSeconds: number,
-    audioFrame: SignalAudioFrame,
-    motionAmount?: number,
-  ) => void;
+  render: (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount?: number) => void;
   dispose: () => void;
 };
 
@@ -648,11 +644,7 @@ type UniformLocations = {
   audioTexture: WebGLUniformLocation;
 };
 
-function compileShader(
-  context: WebGL2RenderingContext,
-  type: number,
-  source: string,
-): WebGLShader {
+function compileShader(context: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = context.createShader(type);
 
   if (!shader) {
@@ -663,8 +655,7 @@ function compileShader(
   context.compileShader(shader);
 
   if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-    const log =
-      context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
+    const log = context.getShaderInfoLog(shader) || "Unknown shader compilation error.";
     context.deleteShader(shader);
     throw new Error(log);
   }
@@ -673,16 +664,8 @@ function compileShader(
 }
 
 function createProgram(context: WebGL2RenderingContext): WebGLProgram {
-  const vertexShader = compileShader(
-    context,
-    context.VERTEX_SHADER,
-    VERTEX_SHADER_SOURCE,
-  );
-  const fragmentShader = compileShader(
-    context,
-    context.FRAGMENT_SHADER,
-    FRAGMENT_SHADER_SOURCE,
-  );
+  const vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+  const fragmentShader = compileShader(context, context.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
   const program = context.createProgram();
 
   if (!program) {
@@ -698,8 +681,7 @@ function createProgram(context: WebGL2RenderingContext): WebGLProgram {
   context.deleteShader(fragmentShader);
 
   if (!context.getProgramParameter(program, context.LINK_STATUS)) {
-    const log =
-      context.getProgramInfoLog(program) || "Unknown WebGL link error.";
+    const log = context.getProgramInfoLog(program) || "Unknown WebGL link error.";
     context.deleteProgram(program);
     throw new Error(log);
   }
@@ -721,9 +703,7 @@ function getUniformLocation(
   return location;
 }
 
-export function createLivingSignalRenderer(
-  canvas: HTMLCanvasElement,
-): LivingSignalRenderer | null {
+export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSignalRenderer | null {
   const context = canvas.getContext("webgl2", {
     alpha: true,
     antialias: false,
@@ -768,40 +748,17 @@ export function createLivingSignalRenderer(
     }
 
     context.enableVertexAttribArray(positionLocation);
-    context.vertexAttribPointer(
-      positionLocation,
-      2,
-      context.FLOAT,
-      false,
-      0,
-      0,
-    );
+    context.vertexAttribPointer(positionLocation, 2, context.FLOAT, false, 0, 0);
     context.bindVertexArray(null);
     context.bindBuffer(context.ARRAY_BUFFER, null);
 
     context.activeTexture(context.TEXTURE0);
     context.bindTexture(context.TEXTURE_2D, audioTexture);
     context.pixelStorei(context.UNPACK_ALIGNMENT, 1);
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_MIN_FILTER,
-      context.LINEAR,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_MAG_FILTER,
-      context.LINEAR,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_WRAP_S,
-      context.CLAMP_TO_EDGE,
-    );
-    context.texParameteri(
-      context.TEXTURE_2D,
-      context.TEXTURE_WRAP_T,
-      context.CLAMP_TO_EDGE,
-    );
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.LINEAR);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
     context.texImage2D(
       context.TEXTURE_2D,
       0,
@@ -837,13 +794,8 @@ export function createLivingSignalRenderer(
         devicePixelRatio,
         window.innerWidth <= 768 ? MOBILE_PIXEL_RATIO : MAX_PIXEL_RATIO,
       );
-      const pixelBudgetRatio = Math.sqrt(
-        MAX_RENDER_PIXELS / (safeWidth * safeHeight),
-      );
-      const renderRatio = Math.max(
-        1,
-        Math.min(preferredRatio, pixelBudgetRatio),
-      );
+      const pixelBudgetRatio = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
+      const renderRatio = Math.max(1, Math.min(preferredRatio, pixelBudgetRatio));
       const width = Math.max(1, Math.floor(safeWidth * renderRatio));
       const height = Math.max(1, Math.floor(safeHeight * renderRatio));
 
@@ -855,11 +807,7 @@ export function createLivingSignalRenderer(
       context.viewport(0, 0, width, height);
     };
 
-    const render = (
-      timeSeconds: number,
-      audioFrame: SignalAudioFrame,
-      motionAmount = 1,
-    ) => {
+    const render = (timeSeconds: number, audioFrame: SignalAudioFrame, motionAmount = 1) => {
       context.clear(context.COLOR_BUFFER_BIT);
       context.useProgram(program);
       context.bindVertexArray(vertexArray);

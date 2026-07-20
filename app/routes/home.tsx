@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/home";
-import { ClockSyncedLight } from "../components/clock-synced-light";
 import { HeroSignal } from "../components/hero-signal";
 import { JohannesburgClock } from "../components/johannesburg-clock";
 import { SignalTitleDecoder } from "../components/signal-title-decoder";
@@ -94,8 +93,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       <main id="main-content">
         <section className="signal-threshold" aria-labelledby="signal-threshold-title">
-          <ClockSyncedLight />
-
           <div className="signal-threshold__title-position">
             <h1
               id="signal-threshold-title"

@@ -1,17 +1,15 @@
 .signal-threshold .signal-threshold__footer {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 0;
 }
 
 .signal-threshold .signal-threshold__footer-info {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  gap: clamp(2.5rem, 5vw, 6rem);
-  align-items: end;
-  width: min(66.666vw, 72rem);
-  max-width: 100%;
+  display: contents;
 }
 
 .signal-threshold .signal-threshold__coordinates {
+  grid-column: 1;
+  justify-self: start;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -19,9 +17,10 @@
 }
 
 .signal-threshold .signal-threshold__clock {
+  grid-column: 2;
+  justify-self: start;
   display: inline-block;
   min-width: 6.8rem;
-  justify-self: start;
   color: rgba(242, 239, 232, 0.82);
   font-size: clamp(0.68rem, 0.86vw, 0.82rem);
   font-variant-numeric: tabular-nums;
@@ -34,38 +33,66 @@
 }
 
 .signal-threshold .signal-threshold__clock-zone {
-  justify-self: end;
+  grid-column: 3;
+  justify-self: start;
   color: rgba(242, 239, 232, 0.48);
   white-space: nowrap;
 }
 
+.signal-threshold .signal-threshold__scroll {
+  grid-column: 3;
+  justify-self: end;
+}
+
 @media (max-width: 70rem) {
-  .signal-threshold .signal-threshold__footer-info {
-    grid-template-columns: auto auto;
-    gap: clamp(1.5rem, 4vw, 3rem);
-    width: min(72vw, 56rem);
+  .signal-threshold .signal-threshold__footer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signal-threshold .signal-threshold__coordinates {
+    grid-column: 1;
+  }
+
+  .signal-threshold .signal-threshold__clock {
+    grid-column: 2;
   }
 
   .signal-threshold .signal-threshold__clock-zone {
     display: none;
   }
+
+  .signal-threshold .signal-threshold__scroll {
+    grid-column: 2;
+  }
 }
 
 @media (max-width: 48rem) {
-  .signal-threshold .signal-threshold__footer-info {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.35rem;
-    width: auto;
+  .signal-threshold .signal-threshold__footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    row-gap: 0.35rem;
   }
 
   .signal-threshold .signal-threshold__coordinates {
     display: none;
   }
 
+  .signal-threshold .signal-threshold__clock {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .signal-threshold .signal-threshold__clock-zone {
-    display: inline;
+    grid-column: 1;
+    grid-row: 2;
     justify-self: start;
+    display: inline;
     white-space: normal;
+  }
+
+  .signal-threshold .signal-threshold__scroll {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: end;
   }
 }

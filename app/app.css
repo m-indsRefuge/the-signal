@@ -1,7 +1,7 @@
 @import "tailwindcss" source(".");
 
 :root {
-  --color-void: #050608;
+  --color-void: #000000;
   --color-shell: #080a0d;
   --color-workbench: #0d1014;
   --color-panel: #12161c;
@@ -59,9 +59,7 @@ body {
   min-height: 100vh;
   margin: 0;
   overflow-x: clip;
-  background:
-    radial-gradient(circle at 76% 8%, rgba(255, 46, 166, 0.07), transparent 27rem),
-    linear-gradient(180deg, var(--color-void) 0%, var(--color-shell) 48%, #060709 100%);
+  background: #000000;
   color: var(--color-text-primary);
   font-family: var(--font-interface);
   font-synthesis: none;

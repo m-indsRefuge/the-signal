@@ -1,9 +1,11 @@
 .signal-shell--composition-reset {
   padding-bottom: 0;
-  background: rgba(5, 6, 8, 0.9);
+  background: #000000;
 }
 
-.signal-shell--composition-reset::after {
+.signal-shell--composition-reset::before,
+.signal-shell--composition-reset::after,
+.signal-threshold::before {
   display: none;
 }
 
@@ -24,6 +26,7 @@
   place-items: center;
   overflow: hidden;
   isolation: isolate;
+  background: #000000;
 }
 
 .signal-threshold::before {
@@ -118,8 +121,11 @@
 }
 
 .signal-threshold__beam {
-  width: min(94vw, 104rem);
-  height: clamp(13rem, 28vh, 22rem);
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .hero-signal__svg {
@@ -330,8 +336,8 @@
   }
 
   .signal-threshold__beam {
-    width: 128vw;
-    height: 13rem;
+    width: 100%;
+    height: 100%;
   }
 
   .signal-threshold__footer {

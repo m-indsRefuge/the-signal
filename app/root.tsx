@@ -8,9 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { SpaceBackground } from "./components/space-background";
 import "./app.css";
-import "./site-background.css";
 
 export const links: Route.LinksFunction = () => [
   {
@@ -26,14 +24,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#07080a" />
+        <meta name="theme-color" content="#000000" />
         <Meta />
         <Links />
       </head>
 
       <body>
-        <SpaceBackground />
-
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>

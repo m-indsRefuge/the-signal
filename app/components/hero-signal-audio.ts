@@ -90,18 +90,11 @@ function fillProceduralTexture(
     const phaseWarp =
       Math.sin(progress * TAU * 1.7 - timeSeconds * 0.047) * 0.72 +
       Math.sin(progress * TAU * 4.1 - timeSeconds * 0.13) * 0.21;
-    const carrier = Math.sin(
-      TAU * (progress * 8.6 - timeSeconds * 0.16) + phaseWarp,
-    );
-    const harmonic = Math.sin(
-      TAU * (progress * 15.4 - timeSeconds * 0.23) + carrier * 0.84,
-    );
-    const articulation = Math.sin(
-      TAU * (progress * 31 - timeSeconds * 0.51) + harmonic * 0.38,
-    );
+    const carrier = Math.sin(TAU * (progress * 8.6 - timeSeconds * 0.16) + phaseWarp);
+    const harmonic = Math.sin(TAU * (progress * 15.4 - timeSeconds * 0.23) + carrier * 0.84);
+    const articulation = Math.sin(TAU * (progress * 31 - timeSeconds * 0.51) + harmonic * 0.38);
     const localEnvelope = clamp01(
-      phrase *
-        (0.74 + Math.sin(progress * TAU * 2.2 - timeSeconds * 0.19) * 0.16),
+      phrase * (0.74 + Math.sin(progress * TAU * 2.2 - timeSeconds * 0.19) * 0.16),
     );
     const wave = clampSigned(
       (carrier * 0.66 + harmonic * 0.24 + articulation * 0.1) * localEnvelope,
@@ -116,14 +109,7 @@ function fillProceduralTexture(
     );
     const transient = clamp01(Math.abs(wave - previousWave) * 2.4);
 
-    writeTextureSample(
-      textureData,
-      index,
-      wave,
-      spectrum,
-      localEnvelope,
-      transient,
-    );
+    writeTextureSample(textureData, index, wave, spectrum, localEnvelope, transient);
 
     previousWave = wave;
     maximumAmplitude = Math.max(maximumAmplitude, Math.abs(wave));
@@ -134,20 +120,12 @@ function fillProceduralTexture(
 
   return {
     crest: clamp01((maximumAmplitude / Math.max(rms, 0.001) - 1) / 4.5),
-    flux:
-      0.14 +
-      (0.5 +
-        0.5 * Math.sin(timeSeconds * 0.83 + Math.sin(timeSeconds * 0.17))) *
-        0.18,
+    flux: 0.14 + (0.5 + 0.5 * Math.sin(timeSeconds * 0.83 + Math.sin(timeSeconds * 0.17))) * 0.18,
   };
 }
 
-function createProceduralFrame(
-  timeSeconds: number,
-  textureData: Uint8Array,
-): SignalAudioFrame {
-  const phrase =
-    0.5 + 0.5 * Math.sin(timeSeconds * 0.31 + Math.sin(timeSeconds * 0.071));
+function createProceduralFrame(timeSeconds: number, textureData: Uint8Array): SignalAudioFrame {
+  const phrase = 0.5 + 0.5 * Math.sin(timeSeconds * 0.31 + Math.sin(timeSeconds * 0.071));
   const articulation = 0.5 + 0.5 * Math.sin(timeSeconds * 1.17 + 1.4);
   const shimmer = 0.5 + 0.5 * Math.sin(timeSeconds * 2.43 - 0.8);
   const dynamics = fillProceduralTexture(timeSeconds, textureData);
@@ -167,20 +145,11 @@ function createNormalizedMonoData(decodedBuffer: AudioBuffer): ClipData {
   const monoSamples = new Float32Array(decodedBuffer.length);
   let decodedPeak = 0;
 
-  for (
-    let sampleIndex = 0;
-    sampleIndex < decodedBuffer.length;
-    sampleIndex += 1
-  ) {
+  for (let sampleIndex = 0; sampleIndex < decodedBuffer.length; sampleIndex += 1) {
     let mixedSample = 0;
 
-    for (
-      let channelIndex = 0;
-      channelIndex < decodedBuffer.numberOfChannels;
-      channelIndex += 1
-    ) {
-      mixedSample +=
-        decodedBuffer.getChannelData(channelIndex)[sampleIndex] ?? 0;
+    for (let channelIndex = 0; channelIndex < decodedBuffer.numberOfChannels; channelIndex += 1) {
+      mixedSample += decodedBuffer.getChannelData(channelIndex)[sampleIndex] ?? 0;
     }
 
     mixedSample /= Math.max(1, decodedBuffer.numberOfChannels);
@@ -193,14 +162,8 @@ function createNormalizedMonoData(decodedBuffer: AudioBuffer): ClipData {
     TARGET_NORMALIZED_PEAK / Math.max(decodedPeak, 0.001),
   );
 
-  for (
-    let sampleIndex = 0;
-    sampleIndex < monoSamples.length;
-    sampleIndex += 1
-  ) {
-    monoSamples[sampleIndex] = clampSigned(
-      (monoSamples[sampleIndex] ?? 0) * normalizationGain,
-    );
+  for (let sampleIndex = 0; sampleIndex < monoSamples.length; sampleIndex += 1) {
+    monoSamples[sampleIndex] = clampSigned((monoSamples[sampleIndex] ?? 0) * normalizationGain);
   }
 
   return {
@@ -215,8 +178,7 @@ function readLoopedSample(samples: Float32Array, index: number): number {
     return 0;
   }
 
-  const wrappedIndex =
-    ((index % samples.length) + samples.length) % samples.length;
+  const wrappedIndex = ((index % samples.length) + samples.length) % samples.length;
   return samples[wrappedIndex] ?? 0;
 }
 
@@ -231,8 +193,7 @@ function fillClipTexture(
     Math.round(clip.sampleRate * ANALYSIS_WINDOW_SECONDS),
   );
   const currentIndex = Math.floor(
-    (((timeSeconds % clip.duration) + clip.duration) % clip.duration) *
-      clip.sampleRate,
+    (((timeSeconds % clip.duration) + clip.duration) % clip.duration) * clip.sampleRate,
   );
   const windowStartIndex = currentIndex - windowLength + 1;
   const lowAlpha = 1 - Math.exp((-TAU * 250) / clip.sampleRate);
@@ -249,9 +210,7 @@ function fillClipTexture(
   let previousSample = readLoopedSample(clip.samples, windowStartIndex - 1);
 
   for (let bucketIndex = 0; bucketIndex < PEAK_BUCKET_COUNT; bucketIndex += 1) {
-    const bucketStart = Math.floor(
-      (bucketIndex / PEAK_BUCKET_COUNT) * windowLength,
-    );
+    const bucketStart = Math.floor((bucketIndex / PEAK_BUCKET_COUNT) * windowLength);
     const bucketEnd = Math.max(
       bucketStart + 1,
       Math.floor(((bucketIndex + 1) / PEAK_BUCKET_COUNT) * windowLength),
@@ -264,10 +223,7 @@ function fillClipTexture(
     let roughnessTotal = 0;
 
     for (let offset = bucketStart; offset < bucketEnd; offset += 1) {
-      const sampleValue = readLoopedSample(
-        clip.samples,
-        windowStartIndex + offset,
-      );
+      const sampleValue = readLoopedSample(clip.samples, windowStartIndex + offset);
       const signedSample = clampSigned(sampleValue * 1.08);
       const difference = Math.abs(signedSample - previousSample);
 
@@ -294,28 +250,12 @@ function fillClipTexture(
     const bucketLength = Math.max(1, bucketEnd - bucketStart);
     const envelope = clamp01((envelopeTotal / bucketLength) * 2.4);
     const transient = clamp01(localTransient * 4.2);
-    const spectrum = clamp01(
-      (roughnessTotal / bucketLength) * 5.4 + transient * 0.16,
-    );
+    const spectrum = clamp01((roughnessTotal / bucketLength) * 5.4 + transient * 0.16);
     const forwardBucketIndex = PEAK_BUCKET_COUNT - 1 - bucketIndex;
     const textureIndex = forwardBucketIndex * 2;
 
-    writeTextureSample(
-      textureData,
-      textureIndex,
-      minimum,
-      spectrum,
-      envelope,
-      transient,
-    );
-    writeTextureSample(
-      textureData,
-      textureIndex + 1,
-      maximum,
-      spectrum,
-      envelope,
-      transient,
-    );
+    writeTextureSample(textureData, textureIndex, minimum, spectrum, envelope, transient);
+    writeTextureSample(textureData, textureIndex + 1, maximum, spectrum, envelope, transient);
 
     transientTotal += transient;
   }
@@ -328,9 +268,7 @@ function fillClipTexture(
     Math.max(0, low - previousBands.low) +
     Math.max(0, mid - previousBands.mid) +
     Math.max(0, high - previousBands.high);
-  const flux = clamp01(
-    bandChange * 1.8 + (transientTotal / PEAK_BUCKET_COUNT) * 0.42,
-  );
+  const flux = clamp01(bandChange * 1.8 + (transientTotal / PEAK_BUCKET_COUNT) * 0.42);
   const crest = clamp01((maximumAmplitude / Math.max(rms, 0.001) - 1) / 4.5);
 
   previousBands.low = low;
@@ -358,22 +296,14 @@ function mixTextureData(
   progress: number,
 ): void {
   for (let index = 0; index < output.length; index += 1) {
-    output[index] = Math.round(
-      mixValue(fallback[index] ?? 0, clip[index] ?? 0, progress),
-    );
+    output[index] = Math.round(mixValue(fallback[index] ?? 0, clip[index] ?? 0, progress));
   }
 }
 
 export function createSignalAudioSource(): SignalAudioSource {
-  const fallbackTextureData = new Uint8Array(
-    SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT,
-  );
-  const clipTextureData = new Uint8Array(
-    SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT,
-  );
-  const outputTextureData = new Uint8Array(
-    SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT,
-  );
+  const fallbackTextureData = new Uint8Array(SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT);
+  const clipTextureData = new Uint8Array(SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT);
+  const outputTextureData = new Uint8Array(SIGNAL_AUDIO_TEXTURE_SIZE * TEXTURE_CHANNEL_COUNT);
   const previousBands: BandState = { low: 0, mid: 0, high: 0 };
 
   let clipData: ClipData | null = null;
@@ -422,22 +352,10 @@ export function createSignalAudioSource(): SignalAudioSource {
       clipBlendStartTime = timeSeconds;
     }
 
-    const clipFrame = fillClipTexture(
-      clipData,
-      timeSeconds,
-      clipTextureData,
-      previousBands,
-    );
-    const blend = smootherStep(
-      (timeSeconds - clipBlendStartTime) / CLIP_FADE_IN_SECONDS,
-    );
+    const clipFrame = fillClipTexture(clipData, timeSeconds, clipTextureData, previousBands);
+    const blend = smootherStep((timeSeconds - clipBlendStartTime) / CLIP_FADE_IN_SECONDS);
 
-    mixTextureData(
-      outputTextureData,
-      fallbackTextureData,
-      clipTextureData,
-      blend,
-    );
+    mixTextureData(outputTextureData, fallbackTextureData, clipTextureData, blend);
 
     return {
       rms: mixValue(fallback.rms, clipFrame.rms, blend),

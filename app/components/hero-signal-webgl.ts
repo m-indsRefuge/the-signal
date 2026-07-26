@@ -211,6 +211,28 @@ SignalField createSignalField(float x, float timeSeconds) {
     phaseDomain * 0.68 +
     liveTrace.transient * (0.42 + flux * 0.56)
   );
+  float electricalGrainA = sin(
+    TAU *
+      (
+        x * (42.0 + high * 10.0) -
+        timeSeconds * (1.42 + flux * 0.28)
+      ) +
+    detail * 0.84 +
+    harmonic * 0.36 +
+    phaseDomain * 1.18 +
+    liveTrace.wave * 0.72
+  );
+  float electricalGrainB = sin(
+    TAU *
+      (
+        x * (68.0 + high * 15.0) +
+        timeSeconds * (2.06 + crest * 0.32)
+      ) -
+    detail * 0.46 +
+    body * 0.28 +
+    phaseDomain * 1.52 +
+    liveTrace.transient * 1.1
+  );
 
   float localBreathing =
     0.5 +
@@ -331,8 +353,10 @@ SignalField createSignalField(float x, float timeSeconds) {
     body * 0.37 * lowerTransfer +
     harmonic * (0.11 + mid * 0.025) * upperTransfer;
   float microComposite =
-    harmonic * (0.08 + mid * 0.015) * upperTransfer +
-    detail * (0.07 + high * 0.05) * upperTransfer;
+    harmonic * (0.15 + mid * 0.032) * upperTransfer +
+    detail * (0.145 + high * 0.095) * upperTransfer +
+    electricalGrainA * (0.072 + high * 0.072) * upperTransfer +
+    electricalGrainB * (0.048 + flux * 0.05) * upperTransfer;
 
   float packetOscillation =
     packetA *
@@ -363,7 +387,7 @@ SignalField createSignalField(float x, float timeSeconds) {
       liveTrace.wave * 0.56
     ) *
     coherence *
-    (0.0035 + high * 0.0045);
+    (0.009 + high * 0.01);
 
   float liveContour =
     liveTrace.wave *
@@ -378,8 +402,8 @@ SignalField createSignalField(float x, float timeSeconds) {
       phaseDomain
     ) *
     (
-      liveTrace.envelope * (0.0022 + mid * 0.004) +
-      liveTrace.transient * (0.002 + flux * 0.004)
+      liveTrace.envelope * (0.0058 + mid * 0.009) +
+      liveTrace.transient * (0.0048 + flux * 0.008)
     );
   float onsetImpulse =
     liveTrace.wave *
@@ -498,7 +522,7 @@ SignalField createSignalField(float x, float timeSeconds) {
     microInterference +
     liveRipple;
   float macroGain = 1.76 + rms * 0.38 + crest * 0.2;
-  float microGain = 1.05 + high * 0.08;
+  float microGain = 1.95 + high * 0.3;
   float baseExpanded =
     macroMotion * macroGain +
     microMotion * microGain +
@@ -845,6 +869,20 @@ void main() {
   float coreWidth =
     max(0.00075, 0.72 / uResolution.y) *
     (1.0 + field.coherence * 0.08 + uDynamics.y * 0.035);
+  float coreBodyWidth =
+    coreWidth *
+    (
+      3.2 +
+      field.energy * 0.18 +
+      temporalActivity * 0.13
+    );
+  float coreShellWidth =
+    coreWidth *
+    (
+      4.1 +
+      field.dispersion * 0.2 +
+      temporalActivity * 0.14
+    );
   float spectralWidth =
     max(0.0011, 0.92 / uResolution.y) *
     (1.0 + field.dispersion * 0.28 + temporalActivity * 0.2);
@@ -852,16 +890,36 @@ void main() {
     max(0.00145, 1.2 / uResolution.y) *
     (1.0 + temporalActivity * 0.34 + field.dispersion * 0.22);
 
-  float core = strokeMask(coreDistance, coreWidth);
+  float coreSpine = strokeMask(coreDistance, coreWidth * 0.92);
+  float coreBody = strokeMask(coreDistance, coreBodyWidth);
+  float coreShell = strokeMask(coreDistance, coreShellWidth);
+  float core = coreBody;
   float cyan = strokeMask(cyanDistance, spectralWidth);
   float pink = strokeMask(pinkDistance, spectralWidth);
   float recentGhost = strokeMask(recentGhostDistance, ghostWidth);
   float middleGhost = strokeMask(middleGhostDistance, ghostWidth * 1.22);
   float oldGhost = strokeMask(oldGhostDistance, ghostWidth * 1.48);
 
-  float coreGlow = exp(-coreDistance * uResolution.y / 8.5);
-  float cyanGlow = exp(-cyanDistance * uResolution.y / 12.0);
-  float pinkGlow = exp(-pinkDistance * uResolution.y / 12.5);
+  float signedCoreProfile = clamp(
+    (vUv.y - corePosition) / max(coreBodyWidth, 0.00001),
+    -1.0,
+    1.0
+  );
+  float coreRoundness = sqrt(
+    max(0.0, 1.0 - signedCoreProfile * signedCoreProfile)
+  );
+  float coreBodyEdge = max(coreBody - coreSpine, 0.0);
+  float coreShellEdge = max(coreShell - coreBody, 0.0);
+  float coreUpperHighlight =
+    coreBodyEdge *
+    (1.0 - smoothstep(-0.72, 0.24, signedCoreProfile));
+  float coreLowerShadow =
+    coreBodyEdge *
+    smoothstep(-0.18, 0.86, signedCoreProfile);
+
+  float coreGlow = exp(-coreDistance * uResolution.y / 6.35);
+  float cyanGlow = exp(-cyanDistance * uResolution.y / 9.8);
+  float pinkGlow = exp(-pinkDistance * uResolution.y / 7.6);
   float recentGhostGlow = exp(-recentGhostDistance * uResolution.y / 24.0);
   float middleGhostGlow = exp(-middleGhostDistance * uResolution.y / 34.0);
   float oldGhostGlow = exp(-oldGhostDistance * uResolution.y / 48.0);
@@ -1391,13 +1449,16 @@ void main() {
   float centreWeight = 1.0 - abs(x * 2.0 - 1.0);
   float coreStrength = mix(0.78, 1.0, pow(centreWeight, 0.7));
 
-  vec3 white = vec3(1.0, 0.985, 0.955);
+  vec3 white = vec3(1.0, 0.992, 0.974);
+  vec3 silverColour = vec3(0.76, 0.86, 0.95);
+  vec3 coolEdgeColour = vec3(0.24, 0.5, 0.7);
   vec3 cyanColour = vec3(0.36, 0.87, 1.0);
   vec3 pinkColour = vec3(1.0, 0.19, 0.66);
   vec3 violetColour = vec3(0.66, 0.5, 1.0);
+  vec3 residualPinkColour = mix(violetColour, pinkColour, 0.2);
   vec3 residueColour = mix(
     cyanColour,
-    pinkColour,
+    residualPinkColour,
     smoothstep(-0.04, 0.04, vUv.y - corePosition)
   );
   vec3 chargeColour = mix(
@@ -1423,31 +1484,79 @@ void main() {
   vec3 dragColour = mix(
     cyanColour,
     pinkColour,
-    0.34 +
-    dragTension * 0.48 +
-    dragSpeed * 0.12
+    0.06 +
+    dragTension * 0.5 +
+    dragSpeed * 0.08
   );
 
-  vec3 colour = white * core * coreStrength * 2.24;
+  vec3 colour =
+    silverColour *
+    coreBody *
+    coreStrength *
+    (
+      1.0 +
+      coreRoundness * 0.95 +
+      field.energy * 0.16
+    );
+  colour +=
+    coolEdgeColour *
+    coreLowerShadow *
+    coreStrength *
+    (0.28 + field.dispersion * 0.16);
+  colour +=
+    white *
+    coreUpperHighlight *
+    coreStrength *
+    (0.88 + field.coherence * 0.3);
+  colour +=
+    white *
+    coreSpine *
+    coreStrength *
+    (
+      3.6 +
+      field.energy * 0.42 +
+      temporalActivity * 0.24
+    );
+  colour +=
+    silverColour *
+    coreShellEdge *
+    (0.23 + field.energy * 0.095);
   colour += cyanColour * cyan * (0.72 + field.energy * 0.34);
-  colour += pinkColour * pink * (0.68 + field.energy * 0.36);
+  colour +=
+    residualPinkColour *
+    pink *
+    (0.2 + field.energy * 0.13 + temporalActivity * 0.035);
   colour += cyanColour * recentGhost * recentMemoryStrength;
   colour += violetColour * middleGhost * middleMemoryStrength;
-  colour += pinkColour * oldGhost * oldMemoryStrength;
-  colour += white * coreGlow * (0.056 + field.energy * 0.038);
+  colour +=
+    residualPinkColour *
+    oldGhost *
+    oldMemoryStrength *
+    0.46;
+  colour +=
+    silverColour *
+    coreGlow *
+    (0.105 + field.energy * 0.068 + temporalActivity * 0.024);
   colour += cyanColour * cyanGlow * (0.025 + uAudio.z * 0.038);
-  colour += pinkColour * pinkGlow * (0.027 + uAudio.w * 0.043);
+  colour +=
+    residualPinkColour *
+    pinkGlow *
+    (0.007 + uAudio.w * 0.012);
   colour += cyanColour * recentGhostGlow * recentMemoryStrength * 0.3;
   colour += violetColour * middleGhostGlow * middleMemoryStrength * 0.34;
-  colour += pinkColour * oldGhostGlow * oldMemoryStrength * 0.38;
+  colour +=
+    residualPinkColour *
+    oldGhostGlow *
+    oldMemoryStrength *
+    0.16;
   colour +=
     violetColour *
     min(cyanGlow, pinkGlow) *
     (field.energy * 0.034 + field.coherence * 0.024 + temporalActivity * 0.018);
   colour +=
-    mix(cyanColour, pinkColour, 0.54) *
+    mix(cyanColour, violetColour, 0.62) *
     coherenceGlow *
-    (0.017 + field.dispersion * 0.022);
+    (0.02 + field.dispersion * 0.026);
   colour += residueColour * residue * (0.78 + temporalActivity * 0.52);
   colour +=
     observerColour *
@@ -1525,12 +1634,12 @@ void main() {
     max(
       cyan * 0.56,
       max(
-        pink * 0.54,
+        pink * 0.22,
         max(
           recentGhost * recentMemoryStrength * 0.92,
           max(
             middleGhost * middleMemoryStrength * 0.8,
-            oldGhost * oldMemoryStrength * 0.68
+            oldGhost * oldMemoryStrength * 0.38
           )
         )
       )
@@ -1538,12 +1647,13 @@ void main() {
   );
   alpha = max(
     alpha,
-    coreGlow * 0.2 +
-    cyanGlow * 0.072 +
-    pinkGlow * 0.08 +
+    coreShell * 0.38 +
+    coreGlow * 0.27 +
+    cyanGlow * 0.064 +
+    pinkGlow * 0.025 +
     recentGhostGlow * recentMemoryStrength * 0.24 +
     middleGhostGlow * middleMemoryStrength * 0.26 +
-    oldGhostGlow * oldMemoryStrength * 0.28 +
+    oldGhostGlow * oldMemoryStrength * 0.12 +
     coherenceGlow * 0.05 +
     residue * 0.72
   );
@@ -2606,12 +2716,10 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
       motionAmount = 1,
       observerFrame = INACTIVE_OBSERVER_FRAME,
     ) => {
-      const electricalFrame = electricalLifecycle.update(
-        timeSeconds,
-        audioFrame,
-        motionAmount,
-        observerFrame,
-      );
+      const electricalFrame: ElectricalFrame = {
+        charge: [0.02, 0.62, 0, 0],
+        discharge: [0.62, 1, 0, 0],
+      };
 
       context.clear(context.COLOR_BUFFER_BIT);
       context.useProgram(program);
@@ -2681,7 +2789,6 @@ export function createLivingSignalRenderer(canvas: HTMLCanvasElement): LivingSig
         observerFrame.dragVelocityY,
       );
       context.drawArrays(context.TRIANGLES, 0, 3);
-      electricalLifecycle.renderParticles();
       context.bindTexture(context.TEXTURE_2D, null);
       context.bindVertexArray(null);
     };

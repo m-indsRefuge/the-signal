@@ -6,8 +6,8 @@
 **Implementation base commit:** `2e558b341dc61484126b5cb40f7f89fd4c1d8cf7`
 **Target branch:** `game/keep-the-signal-i2-deterministic-encounters`
 **Status:** Accepted
-**Active implementation release:** `NONE`
-**Runtime implementation authorized:** `No`
+**Active implementation release:** `KTS-I2`
+**Runtime implementation authorized:** `Yes`
 **Required runtime authorization token:** `AUTHORIZE KTS-I2`
 
 ---
@@ -986,3 +986,17 @@ The KTS-I2 deterministic encounter-system contract is accepted.
 This acceptance does not authorize runtime implementation. Implementation may begin only after Nolan issues the exact token:
 
 'AUTHORIZE KTS-I2'
+---
+
+## 39. Runtime authorization record
+
+**Authorization token:** `AUTHORIZE KTS-I2`
+**Authorization date:** `2026-07-30`
+**Authorized by:** Nolan
+**Authorized scope:** KTS-I2 deterministic encounter-system implementation only
+**Active implementation release:** `KTS-I2`
+**Runtime implementation authorized:** `Yes`
+
+This authorization permits implementation only within the runtime, test, and result-document boundaries defined by the accepted KTS-I2 contract.
+
+It does not authorize routes, rendering, audio, adaptive-agent systems, language-model integration, persistence, deployment, dependency changes, or unrelated repository work.

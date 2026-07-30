@@ -6,8 +6,8 @@
 **Foundation dependency:** `KTS-F0.1`
 **Foundation commit:** `bd11043`
 **Status:** Accepted
-**Active implementation release:** `NONE`
-**Runtime implementation authorized:** `No`
+**Active implementation release:** `KTS-I1`
+**Runtime implementation authorized:** `Yes`
 **Future runtime authorization token:** `AUTHORIZE KTS-I1`
 **Target branch:** `game/keep-the-signal-i1-deterministic-engine`
 
@@ -87,7 +87,7 @@ This document is a proposed implementation contract.
 It does not authorize runtime implementation while its metadata states:
 
 ```text
-Runtime implementation authorized: No
+Runtime implementation authorized: Yes
 Active implementation release: NONE
 ```
 
@@ -1681,9 +1681,9 @@ AUTHORIZE KTS-I1
 KTS-F0.1: Accepted
 KTS-F0.1 commit: bd11043
 KTS-I1 contract: Accepted
-KTS-I1 runtime release: NONE
-Runtime implementation authorized: No
-Engine implementation: Not started
+KTS-I1 runtime release: KTS-I1
+Runtime implementation authorized: Yes
+Engine implementation: Authorized; not started
 Engine tests: Not created
 Game route: Not created
 Renderer: Not created
@@ -1782,7 +1782,18 @@ The simulation result must include the number of processed ticks.
 
 **Decision:** `ACCEPT KTS-I1 CONTRACT`
 **Decision date:** `2026-07-30`
-**Runtime authorization:** `NOT GRANTED`
+**Runtime authorization:** `GRANTED`
 **Required runtime authorization token:** `AUTHORIZE KTS-I1`
 
 Acceptance of this contract authorizes preparation for the KTS-I1 implementation slice. It does not independently authorize runtime implementation.
+
+---
+
+## 47. Runtime authorization record
+
+**Authorization token:** `AUTHORIZE KTS-I1`
+**Authorization date:** `2026-07-30`
+**Authorized by:** Nolan
+**Authorized scope:** KTS-I1 deterministic-engine implementation only
+
+This authorization permits implementation only within the authorized file set and boundaries defined by this contract.

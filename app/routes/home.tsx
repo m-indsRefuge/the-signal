@@ -7,7 +7,16 @@ import { SignalTitleDecoder } from "../components/signal-title-decoder";
 import { readRequiredBinding } from "../platform/runtime.server";
 import "./home.css";
 
-const modules = [
+interface SignalModule {
+  readonly coordinate: string;
+  readonly id: string;
+  readonly title: string;
+  readonly state: string;
+  readonly description: string;
+  readonly href?: string;
+}
+
+const modules: readonly SignalModule[] = [
   {
     coordinate: "01",
     id: "archive",
@@ -36,9 +45,10 @@ const modules = [
     coordinate: "04",
     id: "keep-the-signal",
     title: "Keep the Signal",
-    state: "dormant",
+    state: "online",
     description:
-      "A cooperative system for preserving coherence under pressure. The game is not active yet.",
+      "A deterministic encounter is playable now: preserve carrier coherence through five hostile waves.",
+    href: "/keep-the-signal",
   },
 ];
 
@@ -195,7 +205,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
           <div className="module-grid">
             {modules.map((module) => (
-              <article className="module-card" id={module.id} key={module.id}>
+              <article
+                className={`module-card${module.href === undefined ? "" : " module-card--active"}`}
+                id={module.id}
+                key={module.id}
+              >
                 <div className="module-card__header">
                   <span className="module-card__coordinate">{module.coordinate}</span>
 
@@ -204,6 +218,17 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
                 <h3>{module.title}</h3>
                 <p>{module.description}</p>
+
+                {module.href !== undefined && (
+                  <a
+                    className="module-card__action"
+                    href={module.href}
+                    aria-label={`Enter ${module.title}`}
+                  >
+                    Enter system
+                    <span aria-hidden="true">â†˜</span>
+                  </a>
+                )}
 
                 <span className="module-card__trace" aria-hidden="true">
                   <span />

@@ -5,10 +5,13 @@
 **Subsystem:** Keep the Signal
 **Release:** `KTS-I3`
 **Title:** Player-Facing Runtime and Presentation Integration
-**Status:** Accepted by Nolan and Byte
+**Status:** Accepted and authorized by Nolan and Byte
 **Contract acceptance:** `ACCEPT KTS-I3 CONTRACT`
 **Acceptance timestamp:** `2026-07-31T10:37:00+02:00`
-**Implementation authorized:** No
+**Active implementation release:** `KTS-I3`
+**Implementation authorization:** `AUTHORIZE KTS-I3`
+**Authorization timestamp:** `2026-07-31T10:40:00+02:00`
+**Implementation authorized:** Yes
 **Base branch:** `main`
 **Base commit:** `7a49a0bec25deb6d05e0911b4057bca72fe67a8f`
 **Target implementation branch:** `game/keep-the-signal-i3-player-runtime`
@@ -1797,12 +1800,33 @@ Acceptance timestamp:
 2026-07-31T10:37:00+02:00
 ```
 
-Runtime implementation remains prohibited until Nolan separately issues:
+Nolan authorized runtime implementation with the exact token:
 
 ```text
 AUTHORIZE KTS-I3
 ```
 
+Authorization timestamp:
+
+```text
+2026-07-31T10:40:00+02:00
+```
+
 Implementation acceptance will require a later exact token defined by the accepted result process.
 
-Contract-document staging and commit are authorized. Runtime code, implementation-branch creation, push, merge, deployment, stash application, and package modification remain unauthorized.
+KTS-I3 runtime implementation, authorized tests, route integration, presentation files, and the required result document may now proceed only within this contract. Push, merge, deployment, package modification, persistence, adaptive-agent work, LLM integration, unrelated repository work, and stash application remain unauthorized.
+
+---
+
+## 32. Runtime authorization record
+
+**Authorization token:** `AUTHORIZE KTS-I3`
+**Authorization timestamp:** `2026-07-31T10:40:00+02:00`
+**Authorized by:** Nolan
+**Authorized scope:** KTS-I3 player-facing runtime and presentation integration only
+**Active implementation release:** `KTS-I3`
+**Runtime implementation authorized:** `Yes`
+
+This authorization permits implementation only within the runtime, presentation, route, test, and result-document boundaries defined by the accepted KTS-I3 contract.
+
+It does not authorize engine-rule changes, engine-constant changes, hero changes, public-media changes, persistence, network calls, adaptive-agent systems, language-model integration, deployment, dependency changes, unrelated repository work, or application of the preserved hero stash.

@@ -206,4 +206,19 @@ describe("Keep the Signal KTS-I3 fixed-step runtime loop", () => {
     expect(afterDispose.disposed).toBe(true);
     expect(onTick).not.toHaveBeenCalled();
   });
+  it("stops the current callback after a tick handler returns false", () => {
+    const calls: number[] = [];
+    const loop = createFixedStepLoop((tickNumber) => {
+      calls.push(tickNumber);
+      return false;
+    });
+
+    loop.advance(0);
+    const result = loop.advance(FIXED_STEP_LOOP_CONFIG.tickDurationMs * 5);
+
+    expect(result.ticksProcessed).toBe(1);
+    expect(result.totalTicksProcessed).toBe(1);
+    expect(result.pendingTicks).toBe(4);
+    expect(calls).toEqual([1]);
+  });
 });

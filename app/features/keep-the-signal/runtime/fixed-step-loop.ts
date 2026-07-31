@@ -28,7 +28,7 @@ export interface FixedStepResumeResult extends FixedStepLoopSnapshot {
   readonly discardedAccumulatorMs: number;
 }
 
-export type FixedStepTickHandler = (tickNumber: number) => void;
+export type FixedStepTickHandler = (tickNumber: number) => unknown;
 
 export interface FixedStepLoop {
   advance(timestampMs: number): FixedStepAdvanceResult;
@@ -114,10 +114,14 @@ export function createFixedStepLoop(onTick: FixedStepTickHandler): FixedStepLoop
     let ticksProcessed = 0;
 
     for (let index = 0; index < ticksToProcess; index += 1) {
-      onTick(totalTicksProcessed + 1);
+      const shouldContinue = onTick(totalTicksProcessed + 1) !== false;
       totalTicksProcessed += 1;
       ticksProcessed += 1;
       accumulatorMs = Math.max(0, accumulatorMs - FIXED_STEP_LOOP_CONFIG.tickDurationMs);
+
+      if (!shouldContinue) {
+        break;
+      }
     }
 
     return Object.freeze({

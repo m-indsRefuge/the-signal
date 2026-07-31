@@ -1,0 +1,77 @@
+.hero-signal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hero-signal__canvas,
+.hero-signal__fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-signal__canvas {
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.hero-signal__fallback {
+  pointer-events: none;
+}
+
+.hero-signal[data-interaction="dragging"] .hero-signal__canvas {
+  cursor: grabbing;
+  touch-action: none;
+}
+
+.hero-signal__fallback {
+  overflow: visible;
+  opacity: 0;
+}
+
+.hero-signal[data-renderer="fallback"] .hero-signal__canvas {
+  display: none;
+}
+
+.hero-signal[data-renderer="fallback"] .hero-signal__fallback {
+  opacity: 1;
+}
+
+.hero-signal__fallback-aura,
+.hero-signal__fallback-spectrum,
+.hero-signal__fallback-core {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hero-signal__fallback-aura {
+  stroke: rgba(255, 46, 166, 0.24);
+  stroke-width: 10;
+  filter: blur(8px);
+}
+
+.hero-signal__fallback-spectrum {
+  stroke: url("#signal-fallback-spectrum");
+  stroke-width: 2.6;
+  opacity: 0.72;
+}
+
+.hero-signal__fallback-core {
+  stroke: rgba(255, 250, 244, 0.96);
+  stroke-width: 0.95;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .hero-signal__canvas {
+    opacity: 0.78;
+  }
+}

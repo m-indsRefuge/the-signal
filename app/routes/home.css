@@ -1,0 +1,395 @@
+.signal-shell--composition-reset {
+  padding-bottom: 0;
+  background: #000000;
+}
+
+.signal-shell--composition-reset::before,
+.signal-shell--composition-reset::after,
+.signal-threshold::before {
+  display: none;
+}
+
+.site-header--deferred {
+  position: absolute;
+  z-index: 20;
+  top: 100svh;
+  right: 0;
+  left: 0;
+  background: rgba(5, 6, 8, 0.84);
+  backdrop-filter: blur(1.25rem);
+}
+
+.signal-threshold {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000000;
+}
+
+.signal-threshold::before {
+  position: absolute;
+  z-index: -3;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.011) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.011) 1px, transparent 1px);
+  background-size: 5.5rem 5.5rem;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  content: "";
+}
+
+.signal-threshold__pink-field {
+  position: absolute;
+  z-index: -2;
+  right: -30rem;
+  bottom: -34rem;
+  width: min(82rem, 98vw);
+  height: min(82rem, 98vw);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 38% 36%,
+    rgba(255, 126, 202, 0.14),
+    rgba(255, 46, 166, 0.058) 23%,
+    rgba(185, 18, 108, 0.022) 43%,
+    transparent 68%
+  );
+  filter: blur(1.7rem);
+  opacity: 0.12;
+  pointer-events: none;
+  transform: scale(0.995);
+  transform-origin: 58% 62%;
+  will-change: opacity, transform;
+}
+
+.signal-threshold__title-position {
+  position: absolute;
+  z-index: 3;
+  top: 39%;
+  left: clamp(2rem, 13vw, 14rem);
+  transform: translateY(-50%);
+}
+
+.signal-threshold__title {
+  margin: 0;
+  color: rgba(242, 239, 232, 0.87);
+  font-family: var(--font-mono);
+  font-size: clamp(0.82rem, 1.15vw, 1.05rem);
+  font-weight: 560;
+  line-height: 1;
+}
+
+.signal-title-decoder {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.signal-title-decoder__glyph {
+  display: inline-block;
+  min-width: 0.76em;
+  color: rgba(242, 239, 232, 0.84);
+  letter-spacing: 0.42em;
+  text-shadow:
+    0 0 1.2rem rgba(255, 255, 255, 0.05),
+    0 0 2.4rem rgba(255, 46, 166, 0.04);
+  transition:
+    color 260ms ease,
+    opacity 260ms ease,
+    text-shadow 340ms ease,
+    transform 340ms ease;
+}
+
+.signal-title-decoder__glyph--space {
+  min-width: 0.95em;
+}
+
+.signal-title-decoder__glyph--active {
+  color: rgba(255, 246, 252, 0.98);
+  text-shadow:
+    0 0 0.8rem rgba(255, 255, 255, 0.16),
+    0 0 1.5rem rgba(255, 255, 255, 0.12),
+    0 0 2.2rem rgba(255, 46, 166, 0.14);
+  transform: translateY(-0.015em);
+}
+
+.signal-title-decoder[data-resolved="true"]
+  .signal-title-decoder__glyph:not(.signal-title-decoder__glyph--active) {
+  color: rgba(242, 239, 232, 0.9);
+}
+
+.signal-threshold__beam {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-signal__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hero-signal__aura,
+.hero-signal__spectrum,
+.hero-signal__core,
+.hero-signal__refraction {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hero-signal__aura {
+  stroke-width: 10;
+  opacity: 0.4;
+}
+
+.hero-signal__spectrum {
+  stroke-width: 2.7;
+  opacity: 0.68;
+}
+
+.hero-signal__core {
+  stroke-width: 0.95;
+  opacity: 0.98;
+}
+
+.hero-signal__refraction {
+  stroke-width: 0.82;
+  opacity: 0.22;
+  mix-blend-mode: screen;
+}
+
+.hero-signal__refraction--cyan {
+  stroke: rgba(114, 221, 255, 0.86);
+}
+
+.hero-signal__refraction--pink {
+  stroke: rgba(255, 114, 196, 0.82);
+}
+
+.signal-threshold__footer {
+  position: absolute;
+  z-index: 5;
+  right: clamp(1.5rem, 4vw, 4rem);
+  bottom: clamp(1.3rem, 3vw, 2.8rem);
+  left: clamp(1.5rem, 4vw, 4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto;
+  align-items: end;
+  column-gap: clamp(3rem, 8vw, 9rem);
+  color: rgba(242, 239, 232, 0.58);
+  font-family: var(--font-mono);
+  font-size: clamp(0.56rem, 0.7vw, 0.68rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.signal-threshold__footer-info {
+  display: grid;
+  grid-template-columns: auto minmax(20rem, 1fr);
+  gap: clamp(3rem, 7vw, 7rem);
+  align-items: end;
+  width: min(66.666vw, 72rem);
+  max-width: 100%;
+}
+
+.signal-threshold__coordinates,
+.signal-threshold__clock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1.4rem;
+}
+
+.signal-threshold__coordinates span {
+  white-space: nowrap;
+}
+
+.signal-threshold__clock {
+  justify-content: flex-start;
+}
+
+.signal-threshold__clock time {
+  min-width: 6.8rem;
+  color: rgba(242, 239, 232, 0.82);
+  font-size: clamp(0.68rem, 0.86vw, 0.82rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+  text-shadow:
+    0 0 1.2rem rgba(255, 255, 255, 0.055),
+    0 0 2.2rem rgba(255, 46, 166, 0.035);
+  white-space: nowrap;
+}
+
+.signal-threshold__clock-zone {
+  color: rgba(242, 239, 232, 0.48);
+  white-space: nowrap;
+}
+
+.signal-threshold__scroll {
+  position: relative;
+  justify-self: end;
+  width: max-content;
+  margin: 0;
+  padding-bottom: 0.35rem;
+  color: rgba(242, 239, 232, 0.66);
+  white-space: nowrap;
+  transition: color 180ms ease;
+}
+
+.signal-threshold__scroll::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 2.4rem;
+  height: 1px;
+  background: rgba(255, 114, 196, 0.58);
+  content: "";
+  transform: scaleX(0.28);
+  transform-origin: right;
+  transition: transform 260ms ease;
+}
+
+.signal-threshold__scroll:hover {
+  color: rgba(242, 239, 232, 0.92);
+}
+
+.signal-threshold__scroll:hover::after {
+  transform: scaleX(1);
+}
+
+.threshold-briefing {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(22rem, 0.62fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  align-items: center;
+  width: min(100%, var(--layout-width));
+  min-height: 48rem;
+  margin: 0 auto;
+  padding: calc(5.5rem + clamp(5rem, 9vw, 9rem)) var(--layout-gutter) clamp(6rem, 10vw, 10rem);
+}
+
+.threshold-briefing__content {
+  max-width: 49rem;
+}
+
+.threshold-briefing__content h2 {
+  margin: 1.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.7rem, 6vw, 6rem);
+  font-weight: 500;
+  letter-spacing: -0.058em;
+  line-height: 0.98;
+}
+
+@media (max-width: 70rem) {
+  .threshold-briefing {
+    grid-template-columns: 1fr;
+  }
+
+  .threshold-briefing .instrument-panel {
+    width: min(100%, 42rem);
+  }
+
+  .signal-threshold__footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 2rem;
+  }
+
+  .signal-threshold__footer-info {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1.5rem;
+    width: min(72vw, 56rem);
+  }
+
+  .signal-threshold__clock-zone {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .signal-threshold__pink-field {
+    right: -19rem;
+    bottom: -21rem;
+    width: 36rem;
+    height: 36rem;
+  }
+
+  .signal-threshold__title-position {
+    top: 34%;
+    left: var(--layout-gutter);
+  }
+
+  .signal-threshold__title {
+    font-size: 0.72rem;
+  }
+
+  .signal-title-decoder__glyph {
+    letter-spacing: 0.32em;
+  }
+
+  .signal-threshold__beam {
+    width: 100%;
+    height: 100%;
+  }
+
+  .signal-threshold__footer {
+    right: var(--layout-gutter);
+    bottom: 1.2rem;
+    left: var(--layout-gutter);
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 1rem;
+  }
+
+  .signal-threshold__footer-info {
+    display: block;
+    width: auto;
+  }
+
+  .signal-threshold__coordinates {
+    display: none;
+  }
+
+  .signal-threshold__clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .signal-threshold__clock-zone {
+    display: inline;
+    white-space: normal;
+  }
+
+  .threshold-briefing {
+    min-height: auto;
+    padding-top: calc(4.8rem + 5rem);
+  }
+
+  .threshold-briefing__content h2 {
+    font-size: clamp(2.5rem, 12vw, 4.3rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-threshold__pink-field {
+    opacity: 0.13;
+    transform: none;
+  }
+
+  .signal-title-decoder__glyph {
+    transition: none;
+  }
+
+  .hero-signal__refraction {
+    display: none;
+  }
+}

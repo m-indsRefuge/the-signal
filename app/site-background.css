@@ -1,0 +1,23 @@
+html {
+  background-color: #050608;
+}
+
+body {
+  background: transparent;
+}
+
+body .signal-shell--composition-reset {
+  background: rgba(5, 6, 8, 0.52);
+}
+
+@media (max-width: 48rem) {
+  body .signal-shell--composition-reset {
+    background: rgba(5, 6, 8, 0.62);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body .signal-shell--composition-reset {
+    background: rgba(5, 6, 8, 0.8);
+  }
+}

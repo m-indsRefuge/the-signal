@@ -546,10 +546,19 @@ describe("Keep the Signal deterministic state representation", () => {
       (event) => event.type === "interference_load_changed",
     );
 
-    const impacts = result.events.filter((event) => event.type === "defence_damaged");
+    const impacts = result.events.filter(
+      (event) =>
+        event.type === "defence_damaged" &&
+        !event.sourceId.startsWith("enemy_projectile:") &&
+        !event.sourceId.startsWith("enemy_escape:"),
+    );
 
     const directCorruptions = result.events.filter(
-      (event) => event.type === "signal_damaged" && event.source === "corruption",
+      (event) =>
+        event.type === "signal_damaged" &&
+        event.source === "corruption" &&
+        !event.sourceId.startsWith("enemy_projectile:") &&
+        !event.sourceId.startsWith("enemy_escape:"),
     );
 
     const recoveryPulses = result.events.filter((event) => event.type === "recovery_pulse_applied");

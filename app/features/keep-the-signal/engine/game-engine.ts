@@ -6,7 +6,24 @@ import type {
   TickFrame,
 } from "./actions";
 import { ENGINE_CONSTANTS } from "./constants";
+import { circlesCollide } from "./collisions";
+import {
+  advanceEncounterIntermission,
+  canSpawnEncounterEnemy,
+  completeEncounterWaveIfEligible,
+  decrementEncounterSpawnCooldown,
+  spawnEncounterEnemy,
+  validateEncounterState,
+} from "./encounters";
 import type { EngineEvent } from "./events";
+import {
+  canEnemyFire,
+  createEnemyProjectileState,
+  decrementEnemyFireCooldowns,
+  integrateEnemyMovement,
+  integrateEnemyProjectile,
+  type EnemyProjectileState,
+} from "./enemies";
 import type { GameState, ProjectileState } from "./game-state";
 import { calculateTickScore } from "./scoring";
 
@@ -70,6 +87,8 @@ export function stepGame(
   const normalizedFrame = normalizeTickFrame(frame, eventTick, events);
 
   decrementCooldowns(state);
+  state.encounter = decrementEncounterSpawnCooldown(state.encounter);
+  state.enemies = decrementEnemyFireCooldowns(state.enemies);
 
   processPowerShift(state, normalizedFrame.player.powerShift, eventTick, events);
   processRecoveryPulse(state, normalizedFrame.player.recoveryPulse, eventTick, events);
@@ -90,7 +109,14 @@ export function stepGame(
   );
 
   integratePlayerPosition(state);
+  updateEncounterPhaseAndSpawnEligibleEnemy(state, eventTick, events);
+  state.enemies = state.enemies.map(integrateEnemyMovement);
+  processEnemyFiring(state, eventTick, events);
   integrateProjectiles(state, eventTick, events);
+  integrateEnemyProjectiles(state, eventTick, events);
+  resolvePlayerProjectileEnemyCollisions(state, eventTick, events);
+  resolveEnemyProjectilePlayerCollisions(state, eventTick, events, damageFlags);
+  processEnemyEscapes(state, eventTick, events, damageFlags);
 
   if (applyContinuousInterference(state, eventTick, events)) {
     damageFlags.signalDamaged = true;
@@ -101,6 +127,7 @@ export function stepGame(
   applySignalRecovery(state, eventTick, events);
   updateSignalCollapse(state, eventTick, events);
   updateCoherenceAndScore(state, eventTick, events);
+  updateWaveCompletionState(state, eventTick, events);
 
   if (state.tick >= MAX_SAFE_INTEGER) {
     throw new EngineInvariantError(
@@ -158,6 +185,7 @@ export function validateGameState(state: Readonly<GameState>): ValidationResult 
   validateSignal(state);
   validateInterference(state);
   validateProjectiles(state.projectiles, state.weapon.nextProjectileId);
+  validateEncounterState(state.encounter, state.enemies, state.enemyProjectiles);
 
   return { valid: true };
 }
@@ -168,6 +196,14 @@ export function serializeCanonicalState(state: Readonly<GameState>): string {
   const orderedProjectiles = [...state.projectiles]
     .sort((left, right) => left.id - right.id)
     .map(canonicalProjectile);
+
+  const orderedEnemies = [...state.enemies]
+    .sort((left, right) => left.id - right.id)
+    .map(canonicalEnemy);
+
+  const orderedEnemyProjectiles = [...state.enemyProjectiles]
+    .sort((left, right) => left.id - right.id)
+    .map(canonicalEnemyProjectile);
 
   return JSON.stringify({
     engineVersion: state.engineVersion,
@@ -216,6 +252,22 @@ export function serializeCanonicalState(state: Readonly<GameState>): string {
       load: state.interference.load,
     },
     projectiles: orderedProjectiles,
+    encounter: {
+      phase: state.encounter.phase,
+      waveNumber: state.encounter.waveNumber,
+      phaseTicks: state.encounter.phaseTicks,
+      spawnCooldownTicks: state.encounter.spawnCooldownTicks,
+      enemiesScheduled: state.encounter.enemiesScheduled,
+      enemiesSpawned: state.encounter.enemiesSpawned,
+      enemiesDefeated: state.encounter.enemiesDefeated,
+      enemiesEscaped: state.encounter.enemiesEscaped,
+      totalEnemiesDefeated: state.encounter.totalEnemiesDefeated,
+      totalEnemiesEscaped: state.encounter.totalEnemiesEscaped,
+      nextEnemyId: state.encounter.nextEnemyId,
+      nextEnemyProjectileId: state.encounter.nextEnemyProjectileId,
+    },
+    enemies: orderedEnemies,
+    enemyProjectiles: orderedEnemyProjectiles,
   });
 }
 
@@ -627,6 +679,309 @@ function integratePlayerPosition(state: GameState): void {
     if (state.player.velocityY > 0) {
       state.player.velocityY = 0;
     }
+  }
+}
+
+function updateEncounterPhaseAndSpawnEligibleEnemy(
+  state: GameState,
+  tick: number,
+  events: EngineEvent[],
+): void {
+  const phaseResult = advanceEncounterIntermission(state.encounter);
+
+  state.encounter = phaseResult.encounter;
+
+  if (phaseResult.waveStarted !== null) {
+    events.push({
+      type: "wave_started",
+      tick,
+      waveNumber: phaseResult.waveStarted,
+      enemiesScheduled: state.encounter.enemiesScheduled,
+    });
+  }
+
+  if (!canSpawnEncounterEnemy(state.encounter)) {
+    return;
+  }
+
+  const result = spawnEncounterEnemy(state.encounter, state.rngState);
+
+  state.encounter = result.encounter;
+  state.rngState = result.nextRngState;
+  state.enemies.push(result.enemy);
+
+  events.push({
+    type: "enemy_spawned",
+    tick,
+    enemyId: result.enemy.id,
+    archetype: result.enemy.archetype,
+    waveNumber: state.encounter.waveNumber,
+    positionX: result.enemy.positionX,
+    positionY: result.enemy.positionY,
+    archetypeRoll: result.archetypeRoll,
+    spawnXRoll: result.spawnXRoll,
+  });
+}
+
+function processEnemyFiring(state: GameState, tick: number, events: EngineEvent[]): void {
+  for (const enemy of state.enemies) {
+    if (!canEnemyFire(enemy)) {
+      continue;
+    }
+
+    if (state.enemyProjectiles.length >= ENGINE_CONSTANTS.MAX_ACTIVE_ENEMY_PROJECTILES) {
+      enemy.fireCooldownTicks = enemy.fireIntervalTicks;
+
+      events.push({
+        type: "enemy_fire_rejected",
+        tick,
+        enemyId: enemy.id,
+        reason: "projectile_capacity",
+      });
+
+      continue;
+    }
+
+    const projectile = createEnemyProjectileState(state.encounter.nextEnemyProjectileId, enemy);
+
+    state.encounter.nextEnemyProjectileId += 1;
+    state.enemyProjectiles.push(projectile);
+    enemy.fireCooldownTicks = enemy.fireIntervalTicks;
+
+    events.push({
+      type: "enemy_fired",
+      tick,
+      enemyId: enemy.id,
+      projectileId: projectile.id,
+      projectileKind: projectile.kind,
+      positionX: projectile.positionX,
+      positionY: projectile.positionY,
+      rawDamage: projectile.rawDamage,
+    });
+  }
+}
+
+function integrateEnemyProjectiles(state: GameState, tick: number, events: EngineEvent[]): void {
+  const activeProjectiles: EnemyProjectileState[] = [];
+
+  for (const projectile of state.enemyProjectiles) {
+    const result = integrateEnemyProjectile(projectile);
+
+    if (result.expiryReason !== null) {
+      events.push({
+        type: "enemy_projectile_expired",
+        tick,
+        projectileId: result.projectile.id,
+        ownerEnemyId: result.projectile.ownerEnemyId,
+        reason: result.expiryReason,
+      });
+
+      continue;
+    }
+
+    activeProjectiles.push(result.projectile);
+  }
+
+  state.enemyProjectiles = activeProjectiles;
+}
+
+function resolvePlayerProjectileEnemyCollisions(
+  state: GameState,
+  tick: number,
+  events: EngineEvent[],
+): void {
+  const remainingProjectiles: ProjectileState[] = [];
+
+  for (const projectile of state.projectiles) {
+    const enemyIndex = state.enemies.findIndex((enemy) => circlesCollide(projectile, enemy));
+
+    if (enemyIndex < 0) {
+      remainingProjectiles.push(projectile);
+      continue;
+    }
+
+    const enemy = state.enemies[enemyIndex];
+    const previousIntegrity = enemy.integrity;
+    const effectiveDamage = Math.min(previousIntegrity, ENGINE_CONSTANTS.PLAYER_PROJECTILE_DAMAGE);
+    const nextIntegrity = previousIntegrity - effectiveDamage;
+
+    events.push({
+      type: "player_projectile_hit_enemy",
+      tick,
+      projectileId: projectile.id,
+      enemyId: enemy.id,
+      rawDamage: ENGINE_CONSTANTS.PLAYER_PROJECTILE_DAMAGE,
+      effectiveDamage,
+    });
+
+    events.push({
+      type: "enemy_damaged",
+      tick,
+      enemyId: enemy.id,
+      projectileId: projectile.id,
+      previousIntegrity,
+      nextIntegrity,
+      rawDamage: ENGINE_CONSTANTS.PLAYER_PROJECTILE_DAMAGE,
+      effectiveDamage,
+    });
+
+    if (nextIntegrity > 0) {
+      enemy.integrity = nextIntegrity;
+      continue;
+    }
+
+    state.enemies.splice(enemyIndex, 1);
+    state.encounter.enemiesDefeated += 1;
+    state.encounter.totalEnemiesDefeated += 1;
+    state.score += enemy.destructionScore;
+
+    events.push({
+      type: "enemy_destroyed",
+      tick,
+      enemyId: enemy.id,
+      archetype: enemy.archetype,
+      projectileId: projectile.id,
+    });
+
+    events.push({
+      type: "enemy_score_awarded",
+      tick,
+      enemyId: enemy.id,
+      amount: enemy.destructionScore,
+      scoreAfter: state.score,
+    });
+  }
+
+  state.projectiles = remainingProjectiles;
+}
+
+function resolveEnemyProjectilePlayerCollisions(
+  state: GameState,
+  tick: number,
+  events: EngineEvent[],
+  damageFlags: DamageFlags,
+): void {
+  const remainingProjectiles: EnemyProjectileState[] = [];
+
+  for (const projectile of state.enemyProjectiles) {
+    if (!circlesCollide(projectile, state.player)) {
+      remainingProjectiles.push(projectile);
+      continue;
+    }
+
+    const target = projectile.kind === "kinetic" ? "defence" : "signal";
+
+    events.push({
+      type: "enemy_projectile_hit_player",
+      tick,
+      projectileId: projectile.id,
+      ownerEnemyId: projectile.ownerEnemyId,
+      projectileKind: projectile.kind,
+      target,
+      rawDamage: projectile.rawDamage,
+    });
+
+    const sourceId = `enemy_projectile:${projectile.id}`;
+
+    if (projectile.kind === "kinetic") {
+      if (applyDefenceDamage(state, projectile.rawDamage, sourceId, tick, events)) {
+        damageFlags.defenceDamaged = true;
+      }
+
+      continue;
+    }
+
+    if (applyDirectSignalDamage(state, projectile.rawDamage, sourceId, tick, events)) {
+      damageFlags.signalDamaged = true;
+    }
+  }
+
+  state.enemyProjectiles = remainingProjectiles;
+}
+
+function processEnemyEscapes(
+  state: GameState,
+  tick: number,
+  events: EngineEvent[],
+  damageFlags: DamageFlags,
+): void {
+  const remainingEnemies = [];
+
+  for (const enemy of state.enemies) {
+    if (enemy.positionY - enemy.radius <= ENGINE_CONSTANTS.WORLD_MAX) {
+      remainingEnemies.push(enemy);
+      continue;
+    }
+
+    state.encounter.enemiesEscaped += 1;
+    state.encounter.totalEnemiesEscaped += 1;
+
+    events.push({
+      type: "enemy_escaped",
+      tick,
+      enemyId: enemy.id,
+      archetype: enemy.archetype,
+      positionY: enemy.positionY,
+      defenceRawDamage: enemy.escapeDefenceDamage,
+      signalRawDamage: enemy.escapeSignalDamage,
+    });
+
+    const sourcePrefix = `enemy_escape:${enemy.id}`;
+
+    if (
+      enemy.escapeDefenceDamage > 0 &&
+      applyDefenceDamage(state, enemy.escapeDefenceDamage, `${sourcePrefix}:defence`, tick, events)
+    ) {
+      damageFlags.defenceDamaged = true;
+    }
+
+    if (
+      enemy.escapeSignalDamage > 0 &&
+      applyDirectSignalDamage(
+        state,
+        enemy.escapeSignalDamage,
+        `${sourcePrefix}:signal`,
+        tick,
+        events,
+      )
+    ) {
+      damageFlags.signalDamaged = true;
+    }
+  }
+
+  state.enemies = remainingEnemies;
+}
+
+function updateWaveCompletionState(state: GameState, tick: number, events: EngineEvent[]): void {
+  const result = completeEncounterWaveIfEligible(
+    state.encounter,
+    state.enemies,
+    state.enemyProjectiles,
+  );
+
+  if (result.waveCompleted === null) {
+    return;
+  }
+
+  state.encounter = result.encounter;
+
+  events.push({
+    type: "wave_completed",
+    tick,
+    waveNumber: result.waveCompleted,
+    enemiesDefeated: state.encounter.enemiesDefeated,
+    enemiesEscaped: state.encounter.enemiesEscaped,
+    totalEnemiesDefeated: state.encounter.totalEnemiesDefeated,
+    totalEnemiesEscaped: state.encounter.totalEnemiesEscaped,
+  });
+
+  if (result.encounterCompleted) {
+    events.push({
+      type: "encounter_completed",
+      tick,
+      totalEnemiesDefeated: state.encounter.totalEnemiesDefeated,
+      totalEnemiesEscaped: state.encounter.totalEnemiesEscaped,
+    });
   }
 }
 
@@ -1222,6 +1577,42 @@ function canonicalProjectile(projectile: Readonly<ProjectileState>): Record<stri
     velocityX: projectile.velocityX,
     velocityY: projectile.velocityY,
     radius: projectile.radius,
+    remainingTicks: projectile.remainingTicks,
+  };
+}
+
+function canonicalEnemy(enemy: Readonly<GameState["enemies"][number]>): Record<string, unknown> {
+  return {
+    id: enemy.id,
+    archetype: enemy.archetype,
+    positionX: enemy.positionX,
+    positionY: enemy.positionY,
+    velocityX: enemy.velocityX,
+    velocityY: enemy.velocityY,
+    radius: enemy.radius,
+    integrity: enemy.integrity,
+    maximumIntegrity: enemy.maximumIntegrity,
+    fireCooldownTicks: enemy.fireCooldownTicks,
+    fireIntervalTicks: enemy.fireIntervalTicks,
+    destructionScore: enemy.destructionScore,
+    escapeDefenceDamage: enemy.escapeDefenceDamage,
+    escapeSignalDamage: enemy.escapeSignalDamage,
+  };
+}
+
+function canonicalEnemyProjectile(
+  projectile: Readonly<GameState["enemyProjectiles"][number]>,
+): Record<string, unknown> {
+  return {
+    id: projectile.id,
+    ownerEnemyId: projectile.ownerEnemyId,
+    kind: projectile.kind,
+    positionX: projectile.positionX,
+    positionY: projectile.positionY,
+    velocityX: projectile.velocityX,
+    velocityY: projectile.velocityY,
+    radius: projectile.radius,
+    rawDamage: projectile.rawDamage,
     remainingTicks: projectile.remainingTicks,
   };
 }

@@ -1,4 +1,6 @@
 import type { PowerChannel } from "./actions";
+import type { EncounterWaveNumber } from "./encounters";
+import type { EnemyArchetype, EnemyProjectileExpiryReason, EnemyProjectileKind } from "./enemies";
 
 export interface EngineEventBase {
   readonly type: string;
@@ -41,6 +43,111 @@ export interface ProjectileExpiredEvent extends EngineEventBase {
   readonly type: "projectile_expired";
   readonly projectileId: number;
   readonly reason: "lifetime" | "world_boundary";
+}
+
+export interface EnemySpawnedEvent extends EngineEventBase {
+  readonly type: "enemy_spawned";
+  readonly enemyId: number;
+  readonly archetype: EnemyArchetype;
+  readonly waveNumber: EncounterWaveNumber;
+  readonly positionX: number;
+  readonly positionY: number;
+  readonly archetypeRoll: number;
+  readonly spawnXRoll: number;
+}
+
+export interface EnemyFiredEvent extends EngineEventBase {
+  readonly type: "enemy_fired";
+  readonly enemyId: number;
+  readonly projectileId: number;
+  readonly projectileKind: EnemyProjectileKind;
+  readonly positionX: number;
+  readonly positionY: number;
+  readonly rawDamage: number;
+}
+
+export interface EnemyFireRejectedEvent extends EngineEventBase {
+  readonly type: "enemy_fire_rejected";
+  readonly enemyId: number;
+  readonly reason: "projectile_capacity";
+}
+
+export interface EnemyProjectileExpiredEvent extends EngineEventBase {
+  readonly type: "enemy_projectile_expired";
+  readonly projectileId: number;
+  readonly ownerEnemyId: number;
+  readonly reason: EnemyProjectileExpiryReason;
+}
+
+export interface PlayerProjectileHitEnemyEvent extends EngineEventBase {
+  readonly type: "player_projectile_hit_enemy";
+  readonly projectileId: number;
+  readonly enemyId: number;
+  readonly rawDamage: number;
+  readonly effectiveDamage: number;
+}
+
+export interface EnemyDamagedEvent extends EngineEventBase {
+  readonly type: "enemy_damaged";
+  readonly enemyId: number;
+  readonly projectileId: number;
+  readonly previousIntegrity: number;
+  readonly nextIntegrity: number;
+  readonly rawDamage: number;
+  readonly effectiveDamage: number;
+}
+
+export interface EnemyDestroyedEvent extends EngineEventBase {
+  readonly type: "enemy_destroyed";
+  readonly enemyId: number;
+  readonly archetype: EnemyArchetype;
+  readonly projectileId: number;
+}
+
+export interface EnemyScoreAwardedEvent extends EngineEventBase {
+  readonly type: "enemy_score_awarded";
+  readonly enemyId: number;
+  readonly amount: number;
+  readonly scoreAfter: number;
+}
+
+export interface EnemyProjectileHitPlayerEvent extends EngineEventBase {
+  readonly type: "enemy_projectile_hit_player";
+  readonly projectileId: number;
+  readonly ownerEnemyId: number;
+  readonly projectileKind: EnemyProjectileKind;
+  readonly target: "defence" | "signal";
+  readonly rawDamage: number;
+}
+
+export interface EnemyEscapedEvent extends EngineEventBase {
+  readonly type: "enemy_escaped";
+  readonly enemyId: number;
+  readonly archetype: EnemyArchetype;
+  readonly positionY: number;
+  readonly defenceRawDamage: number;
+  readonly signalRawDamage: number;
+}
+
+export interface WaveStartedEvent extends EngineEventBase {
+  readonly type: "wave_started";
+  readonly waveNumber: EncounterWaveNumber;
+  readonly enemiesScheduled: number;
+}
+
+export interface WaveCompletedEvent extends EngineEventBase {
+  readonly type: "wave_completed";
+  readonly waveNumber: EncounterWaveNumber;
+  readonly enemiesDefeated: number;
+  readonly enemiesEscaped: number;
+  readonly totalEnemiesDefeated: number;
+  readonly totalEnemiesEscaped: number;
+}
+
+export interface EncounterCompletedEvent extends EngineEventBase {
+  readonly type: "encounter_completed";
+  readonly totalEnemiesDefeated: number;
+  readonly totalEnemiesEscaped: number;
 }
 
 export interface RecoveryPulseAppliedEvent extends EngineEventBase {
@@ -106,6 +213,19 @@ export type EngineEvent =
   | ActionRejectedEvent
   | ProjectileFiredEvent
   | ProjectileExpiredEvent
+  | EnemySpawnedEvent
+  | EnemyFiredEvent
+  | EnemyFireRejectedEvent
+  | EnemyProjectileExpiredEvent
+  | PlayerProjectileHitEnemyEvent
+  | EnemyDamagedEvent
+  | EnemyDestroyedEvent
+  | EnemyScoreAwardedEvent
+  | EnemyProjectileHitPlayerEvent
+  | EnemyEscapedEvent
+  | WaveStartedEvent
+  | WaveCompletedEvent
+  | EncounterCompletedEvent
   | RecoveryPulseAppliedEvent
   | DefenceDamagedEvent
   | DefenceRecoveredEvent

@@ -1,5 +1,7 @@
 export * from "./actions";
 export * from "./constants";
+export * from "./encounters";
+export * from "./enemies";
 export * from "./events";
 export * from "./game-engine";
 export * from "./game-state";

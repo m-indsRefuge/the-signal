@@ -1,4 +1,6 @@
 import { ENGINE_CONSTANTS } from "./constants";
+import { createInitialEncounterState, type EncounterState } from "./encounters";
+import type { EnemyProjectileState, EnemyState } from "./enemies";
 import { normalizeSeed } from "./seeded-random";
 
 export type GameStatus = "running" | "terminal";
@@ -72,6 +74,10 @@ export interface GameState {
   };
 
   projectiles: ProjectileState[];
+
+  encounter: EncounterState;
+  enemies: EnemyState[];
+  enemyProjectiles: EnemyProjectileState[];
 }
 
 export interface CreateInitialGameStateOptions {
@@ -138,5 +144,9 @@ export function createInitialGameState(options: CreateInitialGameStateOptions): 
     },
 
     projectiles: [],
+
+    encounter: createInitialEncounterState(),
+    enemies: [],
+    enemyProjectiles: [],
   };
 }

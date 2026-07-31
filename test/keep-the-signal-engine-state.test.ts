@@ -34,7 +34,7 @@ describe("Keep the Signal engine foundation", () => {
     const state = createInitialGameState({ seed: 1_987_041_211 });
 
     expect(state).toMatchObject({
-      engineVersion: "kts-i1.0.0",
+      engineVersion: "kts-i2.0.0",
       rulesetVersion: "kts-foundation-0.1",
       seed: 1_987_041_211,
       rngState: 1_987_041_211,
@@ -112,6 +112,9 @@ describe("Keep the Signal engine foundation", () => {
     expect(first.player).not.toBe(second.player);
     expect(first.power).not.toBe(second.power);
     expect(first.projectiles).not.toBe(second.projectiles);
+    expect(first.encounter).not.toBe(second.encounter);
+    expect(first.enemies).not.toBe(second.enemies);
+    expect(first.enemyProjectiles).not.toBe(second.enemyProjectiles);
   });
 
   it("provides a neutral immutable tick frame", () => {
@@ -198,6 +201,14 @@ describe("Keep the Signal engine foundation", () => {
     const state = createInitialGameState({ seed: 123 });
 
     expect(validateGameState(state)).toEqual({ valid: true });
+  });
+
+  it("rejects invalid encounter state through game-state validation", () => {
+    const state = createInitialGameState({ seed: 1 });
+
+    state.encounter.enemiesScheduled = 9;
+
+    expect(() => validateGameState(state)).toThrow("Wave 1 must schedule 8 enemies.");
   });
 
   it("rejects a state whose power does not total 100", () => {
@@ -289,9 +300,18 @@ describe("Keep the Signal engine foundation", () => {
     const state = createInitialGameState({ seed: 123 });
     const serialized = serializeCanonicalState(state);
 
-    expect(serialized.startsWith('{"engineVersion":"kts-i1.0.0","rulesetVersion"')).toBe(true);
+    expect(serialized.startsWith('{"engineVersion":"kts-i2.0.0","rulesetVersion"')).toBe(true);
 
-    expect(serialized.endsWith('"projectiles":[]}')).toBe(true);
+    const projectilesIndex = serialized.indexOf('"projectiles":');
+    const encounterIndex = serialized.indexOf('"encounter":');
+    const enemiesIndex = serialized.indexOf('"enemies":');
+    const enemyProjectilesIndex = serialized.indexOf('"enemyProjectiles":');
+
+    expect(projectilesIndex).toBeGreaterThan(-1);
+    expect(encounterIndex).toBeGreaterThan(projectilesIndex);
+    expect(enemiesIndex).toBeGreaterThan(encounterIndex);
+    expect(enemyProjectilesIndex).toBeGreaterThan(enemiesIndex);
+    expect(serialized.endsWith('"enemyProjectiles":[]}')).toBe(true);
   });
 
   it("produces stable eight-character lowercase state digests", () => {
@@ -309,5 +329,14 @@ describe("Keep the Signal engine foundation", () => {
     second.tick = 1;
 
     expect(createStateDigest(first)).not.toBe(createStateDigest(second));
+  });
+
+  it("changes the digest when authoritative encounter state changes", () => {
+    const baseline = createInitialGameState({ seed: 1 });
+    const changed = createInitialGameState({ seed: 1 });
+
+    changed.encounter.spawnCooldownTicks = 1;
+
+    expect(createStateDigest(changed)).not.toBe(createStateDigest(baseline));
   });
 });

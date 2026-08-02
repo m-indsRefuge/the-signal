@@ -1,0 +1,52 @@
+import type { AuthorityBoundary } from "./admission-contract";
+import type { AdmissionEvidence, AdmissionReview } from "./admission-request";
+import type { FamilyIdentities } from "./family-identity";
+import type { SampleRole } from "./sample-role";
+
+export type NormalizedSample = Readonly<{
+  sampleId: string;
+  sampleDigest: string;
+  sampleSchemaId: string;
+  sampleSchemaVersion: string;
+  datasetPurposeId: string;
+  evidenceId: string;
+  evidenceDigest: string;
+  reviewId: string;
+  reviewDigest: string;
+  role: SampleRole;
+  domainId: string;
+  domainVersion: string;
+  families: FamilyIdentities;
+  seedIdentity: string;
+  observationId: string;
+  observationDigest: string;
+  observationProjection: unknown;
+  legalActionSetDigest: string;
+  legalActionProjection: readonly unknown[];
+  plannerRequestId: string;
+  plannerRequestDigest: string;
+  plannerResultId: string;
+  plannerResultDigest: string;
+  selectedPlan?: unknown;
+  proposal?: unknown;
+  proposalDigest?: string;
+  validatorDecision?: "accepted" | "rejected";
+  validatorReasons: readonly string[];
+  validatorResultDigest?: string;
+  qualityLabels: readonly string[];
+  riskLabels: readonly string[];
+  limitations: readonly string[];
+  reconstructionStatus: AdmissionEvidence["reconstructionStatus"];
+  policyBindings: Readonly<Record<string, string>>;
+  authority: AuthorityBoundary;
+}>;
+
+export type SampleProjectionInput = Readonly<{
+  sampleId: string;
+  evidence: AdmissionEvidence;
+  review: AdmissionReview;
+  datasetPurposeId: string;
+  role: SampleRole;
+  families: FamilyIdentities;
+  policyBindings: Readonly<Record<string, string>>;
+}>;

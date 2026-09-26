@@ -423,15 +423,7 @@
   position: absolute;
   inset: 0;
   border: 1px solid rgba(119, 200, 218, 0.11);
-  background:
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left top / 2.6rem 1px no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left top / 1px 2.6rem no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right top / 2.6rem 1px no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right top / 1px 2.6rem no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left bottom / 2.6rem 1px no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left bottom / 1px 2.6rem no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right bottom / 2.6rem 1px no-repeat,
-    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right bottom / 1px 2.6rem no-repeat;
+  box-shadow: inset 0 0 2rem rgba(109, 203, 223, 0.025);
 }
 
 .carrier-artifact__orbitals {
@@ -537,12 +529,6 @@
     inset: 1rem;
     font-size: 0.48rem;
     letter-spacing: 0.1em;
-  }
-
-  .carrier-artifact__frame {
-    background-size:
-      1.5rem 1px, 1px 1.5rem, 1.5rem 1px, 1px 1.5rem,
-      1.5rem 1px, 1px 1.5rem, 1.5rem 1px, 1px 1.5rem;
   }
 
   .carrier-artifact__orbit--outer {

@@ -394,7 +394,6 @@
   }
 }
 
-
 /* The hero signal is presented as a captured carrier trace: measured, framed, and still alive. */
 .signal-threshold__beam {
   isolation: isolate;

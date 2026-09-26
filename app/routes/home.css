@@ -506,14 +506,14 @@
 }
 
 .carrier-artifact__label--southwest {
-  bottom: 1.15rem;
+  bottom: clamp(4.8rem, 8vh, 6.5rem);
   left: 1.4rem;
   color: rgba(204, 233, 239, 0.48);
 }
 
 .carrier-artifact__label--southeast {
   right: 1.4rem;
-  bottom: 1.15rem;
+  bottom: clamp(4.8rem, 8vh, 6.5rem);
   color: rgba(204, 233, 239, 0.7);
 }
 
@@ -554,13 +554,9 @@
     right: 0.55rem;
   }
 
-  .carrier-artifact__label--southwest {
-    max-width: 12rem;
-  }
-
+  .carrier-artifact__label--southwest,
   .carrier-artifact__label--southeast {
-    max-width: 10rem;
-    text-align: right;
+    display: none;
   }
 }
 

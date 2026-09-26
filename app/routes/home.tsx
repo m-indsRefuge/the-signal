@@ -105,6 +105,38 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
           <div className="signal-threshold__beam">
             <HeroSignal />
+
+            <div className="carrier-artifact" aria-hidden="true">
+              <div className="carrier-artifact__frame" />
+
+              <svg
+                className="carrier-artifact__orbitals"
+                viewBox="0 0 1600 900"
+                preserveAspectRatio="none"
+                focusable="false"
+              >
+                <ellipse className="carrier-artifact__orbit carrier-artifact__orbit--outer" cx="800" cy="450" rx="604" ry="282" />
+                <ellipse className="carrier-artifact__orbit carrier-artifact__orbit--inner" cx="800" cy="450" rx="478" ry="203" />
+                <ellipse className="carrier-artifact__orbit carrier-artifact__orbit--trace" cx="800" cy="450" rx="377" ry="145" />
+                <path className="carrier-artifact__axis" d="M 162 450 H 1438" />
+                <path className="carrier-artifact__ticks" d="M 240 438 V 462 M 320 444 V 456 M 400 438 V 462 M 480 444 V 456 M 560 438 V 462 M 640 444 V 456 M 720 438 V 462 M 880 438 V 462 M 960 444 V 456 M 1040 438 V 462 M 1120 444 V 456 M 1200 438 V 462 M 1280 444 V 456 M 1360 438 V 462" />
+                <circle className="carrier-artifact__node" cx="322" cy="450" r="2.5" />
+                <circle className="carrier-artifact__node" cx="1278" cy="450" r="2.5" />
+              </svg>
+
+              <span className="carrier-artifact__label carrier-artifact__label--northwest">
+                Instrument / voice carrier
+              </span>
+              <span className="carrier-artifact__label carrier-artifact__label--northeast">
+                Live input <i /> audio-locked
+              </span>
+              <span className="carrier-artifact__label carrier-artifact__label--southwest">
+                The trace holds the shape of a voice.
+              </span>
+              <span className="carrier-artifact__label carrier-artifact__label--southeast">
+                Move pointer to disturb
+              </span>
+            </div>
           </div>
 
           <JohannesburgClock />

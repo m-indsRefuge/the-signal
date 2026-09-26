@@ -393,3 +393,194 @@
     display: none;
   }
 }
+
+
+/* The hero signal is presented as a captured carrier trace: measured, framed, and still alive. */
+.signal-threshold__beam {
+  isolation: isolate;
+}
+
+.signal-threshold__beam > .hero-signal {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.carrier-artifact {
+  position: absolute;
+  z-index: 2;
+  inset: clamp(1.2rem, 3.1vw, 3.2rem) clamp(1rem, 3.6vw, 3.7rem);
+  color: rgba(204, 233, 239, 0.68);
+  font-family: var(--font-mono);
+  font-size: clamp(0.52rem, 0.66vw, 0.66rem);
+  letter-spacing: 0.15em;
+  line-height: 1.4;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.carrier-artifact__frame {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(119, 200, 218, 0.11);
+  background:
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left top / 2.6rem 1px no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left top / 1px 2.6rem no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right top / 2.6rem 1px no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right top / 1px 2.6rem no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left bottom / 2.6rem 1px no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) left bottom / 1px 2.6rem no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right bottom / 2.6rem 1px no-repeat,
+    linear-gradient(rgba(137, 217, 232, 0.68), rgba(137, 217, 232, 0.68)) right bottom / 1px 2.6rem no-repeat;
+}
+
+.carrier-artifact__orbitals {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.carrier-artifact__orbit,
+.carrier-artifact__axis,
+.carrier-artifact__ticks {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.carrier-artifact__orbit {
+  stroke: rgba(109, 203, 223, 0.16);
+  stroke-width: 1;
+}
+
+.carrier-artifact__orbit--outer {
+  stroke-dasharray: 1 8;
+  animation: carrier-orbit-drift 76s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.carrier-artifact__orbit--inner {
+  stroke: rgba(255, 123, 194, 0.13);
+  stroke-dasharray: 44 7 2 7;
+}
+
+.carrier-artifact__orbit--trace {
+  stroke: rgba(209, 244, 248, 0.13);
+  stroke-dasharray: 2 9;
+}
+
+.carrier-artifact__axis {
+  stroke: rgba(137, 217, 232, 0.12);
+  stroke-width: 1;
+}
+
+.carrier-artifact__ticks {
+  stroke: rgba(165, 225, 235, 0.28);
+  stroke-width: 1;
+}
+
+.carrier-artifact__node {
+  fill: #f1b866;
+  filter: drop-shadow(0 0 5px rgba(241, 184, 102, 0.75));
+}
+
+.carrier-artifact__label {
+  position: absolute;
+  color: rgba(204, 233, 239, 0.65);
+  white-space: nowrap;
+}
+
+.carrier-artifact__label--northwest {
+  top: 1.15rem;
+  left: 1.4rem;
+}
+
+.carrier-artifact__label--northeast {
+  top: 1.15rem;
+  right: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.carrier-artifact__label--northeast i {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 50%;
+  background: #f1b866;
+  box-shadow: 0 0 0.8rem rgba(241, 184, 102, 0.7);
+}
+
+.carrier-artifact__label--southwest {
+  bottom: 1.15rem;
+  left: 1.4rem;
+  color: rgba(204, 233, 239, 0.48);
+}
+
+.carrier-artifact__label--southeast {
+  right: 1.4rem;
+  bottom: 1.15rem;
+  color: rgba(204, 233, 239, 0.7);
+}
+
+@keyframes carrier-orbit-drift {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 48rem) {
+  .carrier-artifact {
+    inset: 1rem;
+    font-size: 0.48rem;
+    letter-spacing: 0.1em;
+  }
+
+  .carrier-artifact__frame {
+    background-size:
+      1.5rem 1px, 1px 1.5rem, 1.5rem 1px, 1px 1.5rem,
+      1.5rem 1px, 1px 1.5rem, 1.5rem 1px, 1px 1.5rem;
+  }
+
+  .carrier-artifact__orbit--outer {
+    opacity: 0.55;
+  }
+
+  .carrier-artifact__orbit--inner {
+    opacity: 0.6;
+  }
+
+  .carrier-artifact__orbit--trace,
+  .carrier-artifact__axis,
+  .carrier-artifact__ticks {
+    opacity: 0.55;
+  }
+
+  .carrier-artifact__label--northwest,
+  .carrier-artifact__label--southwest {
+    left: 0.55rem;
+  }
+
+  .carrier-artifact__label--northeast,
+  .carrier-artifact__label--southeast {
+    right: 0.55rem;
+  }
+
+  .carrier-artifact__label--southwest {
+    max-width: 12rem;
+  }
+
+  .carrier-artifact__label--southeast {
+    max-width: 10rem;
+    text-align: right;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carrier-artifact__orbit--outer {
+    animation: none;
+  }
+}
